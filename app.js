@@ -2948,7 +2948,7 @@ function chevBar(reached,current,out){
     if(out&&i>reached)cls='';
     else if(i===current)cls=out?'out':'now';
     else if(i<=reached)cls='done';
-    return '<div class="chevs '+cls+'">'+esc(out&&i===current?out:label)+'</div>';
+    return '<div class="chevs '+cls+'"><span>'+esc(out&&i===current?out:label)+'</span></div>';
   }).join('')+'</div>';
 }
 function panelIcons(){
@@ -3358,16 +3358,6 @@ function vJob(){
       sub:esc(coName(j.companyId))+' &middot; '+esc(j.location)+' &middot; contact '+esc(ctName(j.contactId))+
         ' &middot; '+esc(j.status)+' &middot; added '+fmtD(j.added)+' ('+daysBetween(j.added,new Date())+
         ' days) &middot; record <span class="mono">'+esc(j.id)+'</span>'})+
-    '<div class="snap">'+
-      '<div><div class="k">Type</div><div class="v">'+esc(j.type)+'</div></div>'+
-      '<div><div class="k">Openings</div><div class="v">'+j.filled+' of '+j.openings+' filled</div></div>'+
-      '<div><div class="k">Pay rate</div><div class="v">'+money(j.payRate)+'/hr</div></div>'+
-      '<div><div class="k">Bill rate</div><div class="v">'+money(j.billRate)+'/hr</div></div>'+
-      '<div><div class="k">Gross margin</div><div class="v">'+margin(j.payRate,j.billRate)+'%</div></div>'+
-      '<div><div class="k">Sendouts</div><div class="v">'+subs.filter(function(s){return !!s.sendoutAt;}).length+'</div></div>'+
-      '<div><div class="k">Owner</div><div class="v">'+esc(j.owner)+'</div></div>'+
-      '<div><div class="k">Start date</div><div class="v">'+fmtD(j.startDate)+'</div></div>'+
-    '</div>'+
     chevBar((function(){
       var best=-1;
       subs.forEach(function(x){var ix=pIx(x.status);if(ix>best)best=ix;});
@@ -3482,15 +3472,6 @@ function vCandidate(){
       '<button class="btn ghost" data-act="actions" data-type="candidate" data-id="'+c.id+'">Actions \u25BE</button>',
     sub:esc(c.occupation)+' &middot; '+esc(c.location)+' &middot; '+esc(c.status)+
       ' &middot; sourced via '+esc(c.source)+' &middot; record <span class="mono">'+esc(c.id)+'</span>'})+
-    '<div class="snap">'+
-      '<div><div class="k">Status</div><div class="v">'+esc(c.status)+'</div></div>'+
-      '<div><div class="k">Availability</div><div class="v">'+esc(c.availability)+'</div></div>'+
-      '<div><div class="k">Desired rate</div><div class="v">'+money(c.desiredRate)+'/hr</div></div>'+
-      '<div><div class="k">Preference</div><div class="v">'+esc(c.employmentPref)+'</div></div>'+
-      '<div><div class="k">Owner</div><div class="v">'+esc(c.owner)+'</div></div>'+
-      '<div><div class="k">Date added</div><div class="v">'+fmtD(c.added)+'</div></div>'+
-      '<div><div class="k">CV</div><div class="v">'+(c.cv?esc(c.cvName||'on file'):'none on file')+'</div></div>'+
-    '</div>'+
     rtabs([{k:'overview',t:'Overview'},{k:'notes',t:'Notes',ct:notes.length},
       {k:'subs',t:'Submissions',ct:subs.length},
       {k:'placements',t:'Placements',ct:pls.length},
@@ -4941,7 +4922,12 @@ function render(){
   if(bell){
     var nun=unread();
     bell.innerHTML='<span data-act="notifs" role="button" tabindex="0" title="Notifications" '+
-      'style="cursor:pointer;position:relative;display:inline-block;padding:0 3px">\u2687'+
+      'style="cursor:pointer;position:relative;display:inline-block;padding:0 2px;line-height:1">'+
+      '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="vertical-align:-3px">'+
+        '<path d="M8 1.5a3.5 3.5 0 0 0-3.5 3.5v2.2L3.2 10.2h9.6L11.5 7.2V5A3.5 3.5 0 0 0 8 1.5z" '+
+        'fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>'+
+        '<path d="M6.4 12a1.6 1.6 0 0 0 3.2 0" fill="none" stroke="currentColor" stroke-width="1.3"/>'+
+      '</svg>'+
       (nun?'<span style="position:absolute;top:-6px;right:-8px;background:var(--bad);color:#fff;'+
         'border-radius:9px;font-size:10px;font-weight:700;padding:0 5px;line-height:15px">'+nun+'</span>':'')+
       '</span>';
