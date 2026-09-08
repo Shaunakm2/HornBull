@@ -3531,65 +3531,30 @@ function taskTable(rows){
 
 /* ---------------------------------------------------------------- views */
 function vDashboard(){
-  var f=funnel(DB.subs);
   var tf=timeToFill();
-  var mine=scenarioState(activeScenario);
-  var flags=[
-    {n:staleSubs().length,t:'submissions with no status change for 5+ days',v:'pipeline'},
-    {n:pendingTime().length,t:'time entries awaiting approval',v:'approvals'},
-    {n:pendingPlacements().length,t:'placements pending approval',v:'placements'},
-    {n:onboardGaps().length,t:'placements with an incomplete onboarding pack',v:'placements'},
-    {n:openJobs().filter(function(j){return jobSubs(j.id).length===0;}).length,t:'live job orders with an empty pipeline',v:'jobs'}
-  ].filter(function(x){return x.n>0;});
-  var recent=DB.notes.slice().sort(function(a,b){return new Date(b.at)-new Date(a.at);});
-
-  return '<div class="h"><h2>My Dashboard</h2><span class="sp"></span>'+
-    '<div class="btnrow"><button class="btn ghost" data-act="note">Add Note</button>'+
-    '<button class="btn" data-act="addnew">+ Add New</button></div></div>'+
-    '<p class="sub">'+fmtD(TODAY)+' · A. Trainee · Aurora and Halcyon desks</p>'+
-
+  return '<div class="listbar"><span class="dot"></span><h2>Dashboard</h2>'+
+    '<span class="sp"></span><div class="btnrow">'+
+    '<button class="btn ghost" data-act="note">Add Note</button>'+
+    '<button class="btn" data-act="dash-add">Add Card</button></div></div>'+
+    '<div class="mpad">'+
     '<div class="grid g4">'+
-      met('Live job orders',openJobs().length,openJobs().reduce(function(a,j){return a+(j.openings-j.filled);},0)+' openings unfilled')+
-      met('Live submissions',liveSubs().length,staleSubs().length+' ageing past 5 days',staleSubs().length?'dn':'')+
-      met('Sendouts',sendouts().length,f['Interview Scheduled']+' reached interview')+
-      met('Average time to fill',tf==null?'—':tf+' days','job order added to placed')+
+      met('Live job orders',openJobs().length,
+        openJobs().reduce(function(a,j){return a+(j.openings-j.filled);},0)+' openings unfilled')+
+      met('Live submissions',liveSubs().length,staleSubs().length+' ageing past 5 days',
+        staleSubs().length?'dn':'')+
+      met('Sendouts',sendouts().length,funnel(DB.subs)['Interview Scheduled']+' reached interview')+
+      met('Average time to fill',tf==null?'\u2014':tf+' days','job order added to placed')+
     '</div>'+
-
-    (flags.length?'<div class="sec"><h3>Needs attention</h3><div class="tw"><table><tbody>'+
-      flags.map(function(x){
-        return '<tr class="click" data-go="'+x.v+'"><td style="width:52px"><span class="pill p-warn">'+x.n+'</span></td>'+
-          '<td>'+esc(x.t)+'</td><td style="text-align:right"><span class="lnk">Open</span></td></tr>';
-      }).join('')+'</tbody></table></div></div>':'')+
-
-    '<div class="sec grid g2">'+
-      '<div class="card"><div class="card-h"><h4>Submission funnel</h4><span class="sp"></span>'+
-        '<span class="muted mono">'+DB.subs.length+' submissions</span></div><div class="card-b"><div class="fun">'+
-        PIPE.map(function(s,i){
-          var n=f[s.k],top=f[PIPE_K[0]]||1,prev=i?f[PIPE_K[i-1]]:null;
-          return '<div class="fun-row"><span>'+esc(s.k)+'</span>'+
-            '<div class="fun-bar"><span style="width:'+Math.max(2,pct(n,top))+'%;background:'+s.c+'"></span></div>'+
-            '<span class="r">'+n+(prev?' · '+pct(n,prev)+'%':'')+'</span></div>';
-        }).join('')+'</div>'+
-        '<p class="muted" style="font-size:12px;margin:11px 0 0">Percentages are stage-to-stage conversion. The drop between two adjacent statuses is where the coaching conversation belongs.</p></div></div>'+
-      '<div class="card"><div class="card-h"><h4>Practice progress</h4></div><div class="card-b">'+
-        '<div class="kv"><dt>Scenario</dt><dd>'+esc(mine.sc.name)+'</dd>'+
-        '<dt>Steps complete</dt><dd>'+mine.done+' of '+mine.total+'</dd>'+
-        '<dt>Desk review</dt><dd>'+(DB.quiz?DB.quiz.score+'/3':'not attempted')+'</dd>'+
-        '<dt>Knowledge check</dt><dd>'+(DB.assess?DB.assess.score+'/'+DB.assess.total:'not attempted')+'</dd>'+
-        '<dt>Actions recorded</dt><dd>'+DB.audit.length+'</dd></div>'+
-        '<div class="btnrow" style="margin-top:13px"><button class="btn ghost sm" data-act="assess">Knowledge check</button>'+
-        '<button class="btn ghost sm" data-act="session">Session summary</button></div></div></div>'+
-    '</div>'+
-
-    '<div class="sec grid g2">'+
-      '<div><h3 style="font-size:13.5px;font-weight:600;margin:0 0 9px">Today and overdue <em style="font-style:normal;color:var(--ink3);font-weight:400">· '+
-        DB.tasks.filter(function(t){return !t.done;}).length+' open</em></h3>'+
-        taskTable(DB.tasks.filter(function(t){return !t.done;}).slice(0,6))+'</div>'+
-      '<div class="card"><div class="card-h"><h4>Latest notes</h4></div><div class="card-b">'+
-        noteList(recent,'Nothing logged yet.')+'</div></div>'+
-    '</div>';
+    '<div class="dashgrid">'+dashCards().map(function(k){
+      var card=DASH_CARDS[k];
+      return '<div class="card dashcard"><div class="card-h"><h4>'+esc(card.t)+'</h4>'+
+        '<span class="sp"></span><span class="pi">'+
+        '<button data-act="refresh" title="Refresh" aria-label="Refresh">\u21BB</button>'+
+        '<button data-act="dash-hide" data-id="'+k+'" title="Remove this card" '+
+          'aria-label="Remove this card">\u2297</button></span></div>'+
+        card.build()+'</div>';
+    }).join('')+'</div></div>';
 }
-
 function vTasks(){
   var open=DB.tasks.filter(function(t){return !t.done;});
   var done=DB.tasks.filter(function(t){return t.done;});
@@ -5775,6 +5740,232 @@ A.cfgReset=function(){
     }});
 };
 
+/* ================================================================ dashboard charts
+   Inline SVG so the application keeps no dependencies. */
+var CHART_COLS=['#2087DC','#E85D9A','#4EB07C','#F0A63C','#7B62D6','#37B3C4','#E3644B','#9BAAB8',
+  '#2F6E9E','#B4519C','#3E8F63','#C98A16'];
+
+function svgPie(slices,opts){
+  opts=opts||{};
+  var size=opts.size||168,r=size/2-2,cx=size/2,cy=size/2;
+  var total=slices.reduce(function(a,s){return a+s.v;},0);
+  if(!total)return '<div class="muted" style="font-size:12.5px;padding:14px">Nothing to chart yet.</div>';
+  var a0=-Math.PI/2,paths='';
+  slices.forEach(function(s,i){
+    var frac=s.v/total,a1=a0+frac*Math.PI*2;
+    var col=s.c||CHART_COLS[i%CHART_COLS.length];
+    if(frac>=0.9999){
+      paths+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'"></circle>';
+    } else {
+      var x0=cx+r*Math.cos(a0),y0=cy+r*Math.sin(a0);
+      var x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1);
+      paths+='<path d="M'+cx+','+cy+' L'+x0.toFixed(1)+','+y0.toFixed(1)+
+        ' A'+r+','+r+' 0 '+(frac>0.5?1:0)+',1 '+x1.toFixed(1)+','+y1.toFixed(1)+' Z" '+
+        'fill="'+col+'" stroke="#fff" stroke-width="1"><title>'+esc(s.k)+': '+s.v+
+        ' ('+Math.round(frac*100)+'%)</title></path>';
+    }
+    a0=a1;
+  });
+  return '<div class="chart-wrap">'+
+    '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" role="img" '+
+      'aria-label="'+esc(opts.label||'Pie chart')+'">'+paths+'</svg>'+
+    '<ul class="chart-key">'+slices.map(function(s,i){
+      var col=s.c||CHART_COLS[i%CHART_COLS.length];
+      return '<li><i style="background:'+col+'"></i><span class="k">'+esc(s.k)+'</span>'+
+        '<span class="v">'+s.v+'</span></li>';
+    }).join('')+'</ul></div>';
+}
+
+function svgLine(pts,opts){
+  opts=opts||{};
+  var w=opts.w||420,h=opts.h||140,pl=28,pb=20,pt=8,pr=6;
+  if(!pts.length)return '<div class="muted" style="font-size:12.5px;padding:14px">Nothing to chart yet.</div>';
+  var max=Math.max.apply(null,pts.map(function(p){return p.v;}));
+  if(max<=0)max=1;
+  var iw=w-pl-pr,ih=h-pt-pb;
+  var step=pts.length>1?iw/(pts.length-1):0;
+  var xy=pts.map(function(p,i){
+    return {x:pl+i*step,y:pt+ih-(p.v/max)*ih,p:p};
+  });
+  var line=xy.map(function(q,i){return (i?'L':'M')+q.x.toFixed(1)+','+q.y.toFixed(1);}).join(' ');
+  var area=line+' L'+(pl+iw).toFixed(1)+','+(pt+ih)+' L'+pl+','+(pt+ih)+' Z';
+  var grid='';
+  [0,0.5,1].forEach(function(f){
+    var y=pt+ih-f*ih;
+    grid+='<line x1="'+pl+'" y1="'+y.toFixed(1)+'" x2="'+(pl+iw)+'" y2="'+y.toFixed(1)+
+      '" stroke="#E7ECF1" stroke-width="1"></line>'+
+      '<text x="'+(pl-5)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" '+
+      'font-size="8" fill="#8A96A3">'+Math.round(f*max)+'</text>';
+  });
+  var labels=xy.map(function(q,i){
+    if(pts.length>7&&i%2)return '';
+    return '<text x="'+q.x.toFixed(1)+'" y="'+(h-6)+'" text-anchor="middle" font-size="8" '+
+      'fill="#8A96A3">'+esc(q.p.k)+'</text>';
+  }).join('');
+  var dots=xy.map(function(q){
+    return '<circle cx="'+q.x.toFixed(1)+'" cy="'+q.y.toFixed(1)+'" r="3" fill="#fff" '+
+      'stroke="#2087DC" stroke-width="2"><title>'+esc(q.p.k)+': '+q.p.v+'</title></circle>';
+  }).join('');
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" '+
+    'role="img" aria-label="'+esc(opts.label||'Line chart')+'">'+grid+
+    '<path d="'+area+'" fill="rgba(32,135,220,.14)"></path>'+
+    '<path d="'+line+'" fill="none" stroke="#2087DC" stroke-width="2"></path>'+
+    dots+labels+'</svg>';
+}
+
+function monthBuckets(n){
+  var out=[];
+  for(var i=n-1;i>=0;i--){
+    var d=new Date(TODAY.getFullYear(),TODAY.getMonth()-i,1);
+    out.push({k:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()],
+      y:d.getFullYear(),m:d.getMonth(),v:0});
+  }
+  return out;
+}
+function bucketBy(rows,dateOf,n){
+  var b=monthBuckets(n||8);
+  rows.forEach(function(x){
+    var d=new Date(dateOf(x));
+    for(var i=0;i<b.length;i++)
+      if(b[i].m===d.getMonth()&&b[i].y===d.getFullYear()){b[i].v++;break;}
+  });
+  return b;
+}
+function tally(rows,keyOf,order){
+  var m={};
+  rows.forEach(function(x){var k=keyOf(x)||'\u2014';m[k]=(m[k]||0)+1;});
+  var keys=order?order.filter(function(k){return m[k];}):Object.keys(m).sort(function(a,b){return m[b]-m[a];});
+  Object.keys(m).forEach(function(k){if(keys.indexOf(k)<0)keys.push(k);});
+  return keys.map(function(k){return {k:k,v:m[k]};});
+}
+
+/* ---------------------------------------------------------------- cards */
+var DASH_CARDS={
+  attention:{t:'Needs Attention',build:function(){
+    var flags=[
+      {n:staleSubs().length,t:'submissions with no status change for 5+ days',v:'pipeline'},
+      {n:pendingTime().length,t:'time entries awaiting approval',v:'approvals'},
+      {n:pendingPlacements().length,t:'placements pending approval',v:'placements'},
+      {n:onboardGaps().length,t:'placements with an incomplete onboarding pack',v:'placements'},
+      {n:openJobs().filter(function(j){return jobSubs(j.id).length===0;}).length,
+        t:'live job orders with an empty pipeline',v:'jobs'}
+    ].filter(function(x){return x.n>0;});
+    return flags.length
+      ?'<table><tbody>'+flags.map(function(x){
+        return '<tr class="click" data-go="'+x.v+'"><td style="width:46px">'+
+          '<span class="pill p-warn">'+x.n+'</span></td><td>'+esc(x.t)+'</td>'+
+          '<td style="text-align:right"><span class="lnk">Open</span></td></tr>';
+      }).join('')+'</tbody></table>'
+      :'<div class="empty" style="padding:18px"><b>Nothing needs attention</b>'+
+        'Every live record is inside tolerance.</div>';
+  }},
+  jobsNoCoverage:{t:'Jobs without Coverage',build:function(){
+    var bare=openJobs().filter(function(j){return jobSubs(j.id).length===0;});
+    var pts=bucketBy(DB.jobs.filter(function(j){return jobSubs(j.id).length===0;}),
+      function(j){return j.added;},8);
+    return '<div class="card-b" style="padding-bottom:4px">'+
+      svgLine(pts,{label:'Job orders added without submissions, by month'})+'</div>'+
+      '<div style="padding:0 11px 4px;font-size:11.5px;font-weight:700;color:var(--label);'+
+      'letter-spacing:.04em;text-transform:uppercase">Jobs added without submissions</div>'+
+      (bare.length?'<table><thead><tr><th>Job order</th><th>Owner</th><th>Status</th>'+
+        '<th>Date added</th></tr></thead><tbody>'+
+        bare.slice(0,5).map(function(j){
+          return '<tr class="click" data-go="job" data-id="'+j.id+'">'+
+            '<td><span class="lnk">'+esc(j.title)+'</span>'+
+            '<div class="muted" style="font-size:11.5px">'+esc(coName(j.companyId))+'</div></td>'+
+            '<td class="muted">'+esc(j.owner)+'</td>'+
+            '<td>'+joPill(j)+'</td>'+
+            '<td class="muted">'+fmtD(j.added)+'</td></tr>';
+        }).join('')+'</tbody></table>'
+        :'<div class="muted" style="font-size:12.5px;padding:6px 11px 12px">Every live job order has '+
+          'at least one candidate on it.</div>');
+  }},
+  companiesByStatus:{t:'Companies by Status',build:function(){
+    return '<div class="card-b">'+svgPie(tally(DB.companies,function(c){return c.status;},CO_STATUS),
+      {label:'Companies by status'})+'</div>';
+  }},
+  submissionsByStatus:{t:'Submissions by Status',build:function(){
+    return '<div class="card-b">'+svgPie(tally(DB.subs,function(s){return s.status;},
+      PIPE_K.concat(PIPE_OUT)),{label:'Submissions by status'})+'</div>';
+  }},
+  leadsByStatus:{t:'Leads by Status',build:function(){
+    return '<div class="card-b">'+svgPie(tally(DB.leads,function(l){return l.status;},LEAD_STATUS),
+      {label:'Leads by status'})+'</div>';
+  }},
+  candidatesByCategory:{t:'Candidates by Category',build:function(){
+    return '<div class="card-b">'+svgPie(tally(DB.candidates,function(c){return c.category;}),
+      {label:'Candidates by category'})+'</div>';
+  }},
+  companiesOverTime:{t:'Companies over Time',build:function(){
+    var rows=DB.companies.slice().sort(function(a,b){return new Date(a.since)-new Date(b.since);});
+    return '<table><thead><tr><th>Company</th><th>Status</th><th class="num">Age</th></tr></thead><tbody>'+
+      rows.map(function(c){
+        var days=daysBetween(c.since,new Date());
+        return '<tr class="click" data-go="company" data-id="'+c.id+'">'+
+          '<td><span class="lnk">'+esc(c.name)+'</span></td>'+
+          '<td class="muted">'+esc(c.status)+'</td>'+
+          '<td class="num">'+days+' days</td></tr>';
+      }).join('')+'</tbody></table>';
+  }},
+  placementsOverTime:{t:'Placements over Time',build:function(){
+    return '<div class="card-b">'+svgLine(bucketBy(DB.placements,function(p){return p.start;},8),
+      {label:'Placements by start month'})+'</div>';
+  }},
+  funnel:{t:'Submission Funnel',build:function(){
+    var f=funnel(DB.subs);
+    return '<div class="card-b"><div class="fun">'+PIPE.map(function(st,i){
+      var n=f[st.k],top=f[PIPE_K[0]]||1,prev=i?f[PIPE_K[i-1]]:null;
+      return '<div class="fun-row"><span>'+esc(st.k)+'</span>'+
+        '<div class="fun-bar"><span style="width:'+Math.max(2,pct(n,top))+'%;background:'+st.c+'"></span></div>'+
+        '<span class="r">'+n+(prev?' \u00b7 '+pct(n,prev)+'%':'')+'</span></div>';
+    }).join('')+'</div></div>';
+  }},
+  tasks:{t:'Open Tasks',build:function(){
+    var open=DB.tasks.filter(function(t){return !t.done;});
+    return open.length?taskTable(open.slice(0,6))
+      :'<div class="empty" style="padding:18px"><b>Nothing outstanding</b></div>';
+  }},
+  practice:{t:'Practice Progress',build:function(){
+    if(DB.training===false)
+      return '<div class="muted" style="font-size:12.5px;padding:14px">Training mode is off.</div>';
+    var st=scenarioState(activeScenario);
+    return '<div class="card-b"><div class="kv">'+
+      '<dt>Scenario</dt><dd>'+esc(st.sc.name)+'</dd>'+
+      '<dt>Steps complete</dt><dd>'+st.done+' of '+st.total+'</dd>'+
+      '<dt>Desk review</dt><dd>'+(DB.quiz?DB.quiz.score+'/3':'not attempted')+'</dd>'+
+      '<dt>Knowledge check</dt><dd>'+(DB.assess?DB.assess.score+'/'+DB.assess.total:'not attempted')+'</dd>'+
+      '</div></div>';
+  }}
+};
+var DASH_DEFAULT=['attention','jobsNoCoverage','companiesByStatus','submissionsByStatus',
+  'companiesOverTime','candidatesByCategory','funnel','tasks'];
+
+function dashCards(){
+  if(!DB.config.dashCards)DB.config.dashCards=DASH_DEFAULT.slice();
+  return DB.config.dashCards.filter(function(k){return DASH_CARDS[k];});
+}
+A.dashHide=function(k){
+  DB.config.dashCards=dashCards().filter(function(x){return x!==k;});
+  log('Removed a dashboard card',(DASH_CARDS[k]||{}).t||k);
+  Store.save(true);render();
+};
+A.dashAdd=function(){
+  var shown=dashCards();
+  var avail=Object.keys(DASH_CARDS).filter(function(k){return shown.indexOf(k)<0;});
+  if(!avail.length){toast('Every card is already on the dashboard','');return;}
+  openForm({title:'Add Card',
+    intro:'Cards can be added and removed, and the choice is remembered against your user. This is the same idea as the card layout on a record.',
+    fields:[{k:'card',label:'Card',type:'select',required:true,
+      options:avail.map(function(k){return {v:k,t:DASH_CARDS[k].t};})}],
+    submit:'Add card',
+    onSubmit:function(v){
+      DB.config.dashCards=shown.concat([v.card]);
+      log('Added a dashboard card',DASH_CARDS[v.card].t);
+      toast('Card added','ok');
+      Store.save(true);render();
+    }});
+};
+
 /* ---------------------------------------------------------------- coach */
 function renderCoach(){
   var st=scenarioState(activeScenario);
@@ -6165,6 +6356,8 @@ document.addEventListener('click',function(e){
       case 'mass-note': A.massNote(); return;
       case 'file-actions': A.fileActions(t.getAttribute('data-cand'),id); return;
       case 'parse-existing': A.parseExisting(t.getAttribute('data-cand'),id); return;
+      case 'dash-add': A.dashAdd(); return;
+      case 'dash-hide': A.dashHide(id); return;
       case 'cfg-pick': A.cfgPicklist(id); return;
       case 'cfg-req': A.cfgRequired(id,t.getAttribute('data-field')); return;
       case 'cfg-tab-up': A.cfgTabMove(id,t.getAttribute('data-field'),-1); return;
