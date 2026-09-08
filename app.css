@@ -769,3 +769,39 @@ tbody tr.sel{background:var(--blue-sf)!important}
 .chevs[data-act]{cursor:pointer}
 .chevs[data-act]:hover{filter:brightness(1.08);text-decoration:underline}
 .chevs[data-act]:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+
+/* ==================================================================
+   Redesigned sidebar (Bowling Alley) — navigation only
+   ================================================================== */
+.side-brand{background:var(--nav);color:#fff;padding:12px 13px;font-size:15px;font-weight:700;
+  letter-spacing:-.02em;flex:none}
+.side.mini .side-brand{text-align:center;padding:12px 0;font-size:15px}
+.side-sep{height:1px;background:var(--line);margin:5px 0}
+.side .side-pins{border-bottom:0}
+.side{overflow-y:auto}
+
+/* ==================================================================
+   Details card on the right of a record, and the submission funnel
+   ================================================================== */
+.recbody{display:grid;grid-template-columns:minmax(0,1fr) 268px;gap:14px;align-items:start}
+.reccols{min-width:0}
+.detailscard{border:1px solid var(--line);border-radius:3px;background:#fff;position:sticky;top:0}
+.dc-h{padding:9px 11px;border-bottom:1px solid var(--line);font-size:11px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--label);background:var(--surface2)}
+.dc-b{padding:2px 0}
+.dc-row{padding:7px 11px;border-bottom:1px solid var(--line2)}
+.dc-row:last-child{border-bottom:0}
+.dc-row .k{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--label)}
+.dc-row .v{font-size:12.5px;margin-top:2px;overflow-wrap:break-word}
+@media (max-width:1150px){ .recbody{grid-template-columns:minmax(0,1fr)} .detailscard{position:static} }
+
+.funnel{display:flex;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;
+  background:#fff;margin-bottom:12px}
+.funnel .fn{flex:1;padding:8px 10px;text-align:center;cursor:pointer;border-right:1px solid var(--line2);
+  color:var(--ink2);text-decoration:none}
+.funnel .fn:last-child{border-right:0}
+.funnel .fn:hover{background:var(--surface2);color:var(--ink)}
+.funnel .fn.on{background:var(--blue-sf);color:var(--blue-dk);box-shadow:inset 0 -3px 0 var(--blue)}
+.funnel .fn .t{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.funnel .fn .n{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;margin-top:1px}
