@@ -4544,6 +4544,7 @@ var PIN_FLAG={
   placements:function(){return pendingPlacements().length;},
   pipeline:function(){return staleSubs().length;}
 };
+var NAV_GROUPS=['My desk','Sales','Records','Recruiting','Delivery','Tools'];
 function navGroupOf(v){
   var g='Records';
   if(['dashboard','tasks','appts'].indexOf(v)>=0)g='My desk';
@@ -4602,21 +4603,21 @@ function renderRail(){
 
   /* The redesigned interface: a permanent sidebar carrying all navigation, with Fast Find and
      Preferences in it. Open records are not shown here, because that is not documented. */
-  var o='<div class="side-brand">'+(railMini?'R':'Recruit')+'</div><div class="side-pins">';
-  var lastG=null;
-  navItems().forEach(function(i){
-    var g=navGroupOf(i.v);
-    if(g!==lastG){
-      o+=railMini?'<div class="side-sep"></div>':'<div class="side-grp">'+esc(g)+'</div>';
-      lastG=g;
-    }
-    var on=route.view===i.v||RAIL_ALIAS[route.view]===i.v;
-    var fl=i.fl?i.fl():0,ct=i.ct?i.ct():null;
-    o+='<a class="side-pin'+(on?' on':'')+'" data-go="'+i.v+'" role="button" tabindex="0" '+
-      'title="'+esc(i.t)+(fl?' \u2014 '+fl+' need attention':'')+'" aria-current="'+(on?'page':'false')+'">'+
-      '<span class="ic">'+icon(i.v)+(railMini&&fl?'<span class="dot"></span>':'')+'</span>'+
-      (railMini?'':'<span class="lbl">'+esc(i.t)+'</span>'+
-        (fl?'<span class="fl">'+fl+'</span>':(ct!=null?'<span class="ct">'+ct+'</span>':'')))+'</a>';
+  var o='<div class="side-pins">';
+  var items=navItems();
+  NAV_GROUPS.forEach(function(g){
+    var inGroup=items.filter(function(i){return navGroupOf(i.v)===g;});
+    if(!inGroup.length)return;
+    o+=railMini?'<div class="side-sep"></div>':'<div class="side-grp">'+esc(g)+'</div>';
+    inGroup.forEach(function(i){
+      var on=route.view===i.v||RAIL_ALIAS[route.view]===i.v;
+      var fl=i.fl?i.fl():0,ct=i.ct?i.ct():null;
+      o+='<a class="side-pin'+(on?' on':'')+'" data-go="'+i.v+'" role="button" tabindex="0" '+
+        'title="'+esc(i.t)+(fl?' \u2014 '+fl+' need attention':'')+'" aria-current="'+(on?'page':'false')+'">'+
+        '<span class="ic">'+icon(i.v)+(railMini&&fl?'<span class="dot"></span>':'')+'</span>'+
+        (railMini?'':'<span class="lbl">'+esc(i.t)+'</span>'+
+          (fl?'<span class="fl">'+fl+'</span>':(ct!=null?'<span class="ct">'+ct+'</span>':'')))+'</a>';
+    });
   });
   o+='</div><div class="side-sep"></div><div class="side-pins">'+
     '<a class="side-pin" data-act="focus-find" role="button" tabindex="0" title="Fast Find">'+
