@@ -669,7 +669,9 @@ th{padding:7px 10px}
 .detail th{overflow-wrap:normal}
 
 /* stage chevrons: label truncates instead of colliding with the next notch */
-.chevs{overflow:hidden;text-overflow:ellipsis}
+/* the label truncates inside the chevron; the chevron itself must not clip,
+   or the arrow notches drawn with pseudo-elements disappear */
+.chevs>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* record header: let it wrap on narrower screens instead of overlapping */
 .h.rec{flex-wrap:wrap;row-gap:6px;padding-top:5px;padding-bottom:5px}
@@ -741,3 +743,24 @@ tbody tr.sel{background:var(--blue-sf)!important}
 .peek-b{flex:1;overflow:auto}
 .peek-b .detail th{width:42%}
 @media (max-width:700px){ .peek{width:100vw} }
+
+
+/* ==================================================================
+   Layout corrections from the review screenshot
+   ================================================================== */
+/* file names and codes wrap on a sensible boundary, not mid-word */
+.snap div .v,.detail td{overflow-wrap:break-word;word-break:normal}
+.snap div .v{font-size:12.5px}
+
+/* left column rows a little tighter */
+.side-menu{padding:10px 13px}
+.side-pin{padding:6px 13px}
+.side-collapse{padding:5px 13px}
+
+/* header mode switches read as controls rather than body text */
+.tbar-r a[data-act]{border:1px solid rgba(255,255,255,.25);border-radius:11px;padding:2px 9px;font-size:11.5px}
+.tbar-r a[data-act]:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.45)}
+
+/* record header: keep the primary action next to the name, secondaries to the right */
+.h.rec .btn.next{margin-left:2px}
+.h.rec .btnrow .btn{font-size:12px;padding:5px 10px}
