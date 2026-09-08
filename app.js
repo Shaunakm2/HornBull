@@ -3531,29 +3531,75 @@ function taskTable(rows){
 
 /* ---------------------------------------------------------------- views */
 function vDashboard(){
+  var f=funnel(DB.subs);
   var tf=timeToFill();
-  return '<div class="listbar"><span class="dot"></span><h2>Dashboard</h2>'+
-    '<span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="note">Add Note</button>'+
-    '<button class="btn" data-act="dash-add">Add Card</button></div></div>'+
-    '<div class="mpad">'+
+  var mine=scenarioState(activeScenario);
+  var flags=[
+    {n:staleSubs().length,t:'submissions with no status change for 5+ days',v:'pipeline'},
+    {n:pendingTime().length,t:'time entries awaiting approval',v:'approvals'},
+    {n:pendingPlacements().length,t:'placements pending approval',v:'placements'},
+    {n:onboardGaps().length,t:'placements with an incomplete onboarding pack',v:'placements'},
+    {n:openJobs().filter(function(j){return jobSubs(j.id).length===0;}).length,
+      t:'live job orders with an empty pipeline',v:'jobs'}
+  ].filter(function(x){return x.n>0;});
+  var recent=DB.notes.slice().sort(function(a,b){return new Date(b.at)-new Date(a.at);});
+
+  return '<div class="mpad">'+
+    '<div class="h"><h2>My Dashboard</h2><span class="sp"></span>'+
+      '<div class="btnrow"><button class="btn ghost" data-act="note">Add Note</button>'+
+      '<button class="btn" data-act="addnew">+ Add New</button></div></div>'+
+    '<p class="sub">'+fmtD(TODAY)+' \u00b7 A. Trainee \u00b7 Aurora and Halcyon desks</p>'+
+
     '<div class="grid g4">'+
       met('Live job orders',openJobs().length,
         openJobs().reduce(function(a,j){return a+(j.openings-j.filled);},0)+' openings unfilled')+
       met('Live submissions',liveSubs().length,staleSubs().length+' ageing past 5 days',
         staleSubs().length?'dn':'')+
-      met('Sendouts',sendouts().length,funnel(DB.subs)['Interview Scheduled']+' reached interview')+
+      met('Sendouts',sendouts().length,f['Interview Scheduled']+' reached interview')+
       met('Average time to fill',tf==null?'\u2014':tf+' days','job order added to placed')+
     '</div>'+
-    '<div class="dashgrid">'+dashCards().map(function(k){
-      var card=DASH_CARDS[k];
-      return '<div class="card dashcard"><div class="card-h"><h4>'+esc(card.t)+'</h4>'+
-        '<span class="sp"></span><span class="pi">'+
-        '<button data-act="refresh" title="Refresh" aria-label="Refresh">\u21BB</button>'+
-        '<button data-act="dash-hide" data-id="'+k+'" title="Remove this card" '+
-          'aria-label="Remove this card">\u2297</button></span></div>'+
-        card.build()+'</div>';
-    }).join('')+'</div></div>';
+
+    (flags.length?'<div class="sec"><h3>Needs attention</h3><div class="tw"><table><tbody>'+
+      flags.map(function(x){
+        return '<tr class="click" data-go="'+x.v+'"><td style="width:52px">'+
+          '<span class="pill p-warn">'+x.n+'</span></td>'+
+          '<td>'+esc(x.t)+'</td><td style="text-align:right"><span class="lnk">Open</span></td></tr>';
+      }).join('')+'</tbody></table></div></div>':'')+
+
+    '<div class="sec grid g2">'+
+      '<div class="card"><div class="card-h"><h4>Submission funnel</h4><span class="sp"></span>'+
+        '<span class="muted mono">'+DB.subs.length+' submissions</span></div><div class="card-b">'+
+        '<div class="fun">'+PIPE.map(function(st,ix){
+          var n=f[st.k],top=f[PIPE_K[0]]||1,prev=ix?f[PIPE_K[ix-1]]:null;
+          return '<div class="fun-row"><span>'+esc(st.k)+'</span>'+
+            '<div class="fun-bar"><span style="width:'+Math.max(2,pct(n,top))+'%;background:'+st.c+'"></span></div>'+
+            '<span class="r">'+n+(prev?' \u00b7 '+pct(n,prev)+'%':'')+'</span></div>';
+        }).join('')+'</div>'+
+        '<p class="muted" style="font-size:12px;margin:11px 0 0">Percentages are stage-to-stage '+
+        'conversion. The drop between two adjacent statuses is where the coaching conversation belongs.</p>'+
+        '</div></div>'+
+      '<div class="card"><div class="card-h"><h4>Practice progress</h4></div><div class="card-b">'+
+        (DB.training===false
+          ?'<div class="muted" style="font-size:13px">Training mode is off, so scenarios are hidden.</div>'
+          :'<div class="kv"><dt>Scenario</dt><dd>'+esc(mine.sc.name)+'</dd>'+
+            '<dt>Steps complete</dt><dd>'+mine.done+' of '+mine.total+'</dd>'+
+            '<dt>Desk review</dt><dd>'+(DB.quiz?DB.quiz.score+'/3':'not attempted')+'</dd>'+
+            '<dt>Knowledge check</dt><dd>'+
+              (DB.assess?DB.assess.score+'/'+DB.assess.total:'not attempted')+'</dd>'+
+            '<dt>Actions recorded</dt><dd>'+DB.audit.length+'</dd></div>')+
+        '<div class="btnrow" style="margin-top:13px">'+
+        '<button class="btn ghost sm" data-act="assess">Knowledge check</button>'+
+        '<button class="btn ghost sm" data-act="session">Session summary</button></div></div></div>'+
+    '</div>'+
+
+    '<div class="sec grid g2">'+
+      '<div><h3 style="font-size:13.5px;font-weight:600;margin:0 0 9px">Today and overdue '+
+        '<em style="font-style:normal;color:var(--ink3);font-weight:400">\u00b7 '+
+        DB.tasks.filter(function(t){return !t.done;}).length+' open</em></h3>'+
+        taskTable(DB.tasks.filter(function(t){return !t.done;}).slice(0,6))+'</div>'+
+      '<div class="card"><div class="card-h"><h4>Latest notes</h4></div><div class="card-b">'+
+        noteList(recent,'Nothing logged yet.')+'</div></div>'+
+    '</div></div>';
 }
 function vTasks(){
   var open=DB.tasks.filter(function(t){return !t.done;});
@@ -4326,6 +4372,17 @@ function vNotes(){
 
 function vReports(){
   SEEN.reports=true;
+  var chartCards='<div class="sec"><h3>Charts <em>\u00b7 add or remove what you need</em>'+
+    '<span style="float:right"><button class="btn sm" data-act="dash-add">Add Card</button></span></h3>'+
+    '<div class="dashgrid" style="margin-top:0">'+dashCards().map(function(k){
+      var card=DASH_CARDS[k];
+      return '<div class="card dashcard"><div class="card-h"><h4>'+esc(card.t)+'</h4>'+
+        '<span class="sp"></span><span class="pi">'+
+        '<button data-act="refresh" title="Refresh" aria-label="Refresh">\u21BB</button>'+
+        '<button data-act="dash-hide" data-id="'+k+'" title="Remove this card" '+
+          'aria-label="Remove this card">\u2297</button></span></div>'+
+        card.build()+'</div>';
+    }).join('')+'</div></div>';
   var f=funnel(DB.subs),tf=timeToFill();
   var src={};
   DB.candidates.forEach(function(c){
@@ -4380,6 +4437,7 @@ function vReports(){
         ' excluded by status')+
       met('Saved searches',DB.savedSearches.length,'standing queries on this desk')+
     '</div>'+
+    chartCards+
     '<div class="sec"><h3>Conversion by job order</h3><div class="tw"><table><thead><tr><th>Job order</th><th>Company</th>'+
       '<th class="num">On pipeline</th><th class="num">Sendouts</th><th class="num">Interviews</th><th class="num">Placed</th>'+
       '<th class="num">Sendout → interview</th><th>Coverage</th></tr></thead><tbody>'+
@@ -5937,11 +5995,18 @@ var DASH_CARDS={
       '</div></div>';
   }}
 };
-var DASH_DEFAULT=['attention','jobsNoCoverage','companiesByStatus','submissionsByStatus',
-  'companiesOverTime','candidatesByCategory','funnel','tasks'];
+var DASH_DEFAULT=['jobsNoCoverage','companiesByStatus','submissionsByStatus',
+  'companiesOverTime','candidatesByCategory','placementsOverTime'];
 
 function dashCards(){
   if(!DB.config.dashCards)DB.config.dashCards=DASH_DEFAULT.slice();
+  /* cards that belong on the dashboard were briefly listed here; drop them once */
+  if(!DB.config.dashMigrated){
+    DB.config.dashCards=DB.config.dashCards.filter(function(k){
+      return ['attention','funnel','tasks','practice'].indexOf(k)<0;});
+    if(!DB.config.dashCards.length)DB.config.dashCards=DASH_DEFAULT.slice();
+    DB.config.dashMigrated=true;
+  }
   return DB.config.dashCards.filter(function(k){return DASH_CARDS[k];});
 }
 A.dashHide=function(k){
