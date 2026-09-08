@@ -652,3 +652,92 @@ th{padding:7px 10px}
 .side.mini .side-tab .x{display:none}
 .side.mini .side-drop{margin:6px 5px;padding:7px 3px;font-size:9.5px}
 .side.mini .side-foot button{font-size:9.5px;padding:7px 2px}
+
+/* ==================================================================
+   Overflow and truncation fixes
+   ------------------------------------------------------------------
+   Bare tables inside a card could exceed the work area once the
+   practice panel took its 330px, which is what produced a horizontal
+   scrollbar across the whole workspace. Each card now scrolls its own
+   overflow instead of pushing the page wider.
+   ================================================================== */
+.card{overflow-x:auto}
+.card>table{width:100%;min-width:0}
+
+/* long unbroken values must wrap rather than widen the table */
+.detail td,.kv dd,.tl-i .t,.recsub{overflow-wrap:anywhere}
+.detail th{overflow-wrap:normal}
+
+/* stage chevrons: label truncates instead of colliding with the next notch */
+.chevs{overflow:hidden;text-overflow:ellipsis}
+
+/* record header: let it wrap on narrower screens instead of overlapping */
+.h.rec{flex-wrap:wrap;row-gap:6px;padding-top:5px;padding-bottom:5px}
+.h.rec h2{max-width:34ch;flex:0 1 auto}
+.h.rec .btnrow{flex-wrap:wrap;row-gap:5px}
+.h.rec .ricons{margin-left:auto}
+@media (max-width:1400px){ .h.rec .rmini,.h.rec .rsep{display:none} }
+@media (max-width:1100px){ .h.rec .btn:not(.next){font-size:11.5px;padding:5px 9px} }
+
+/* metric tiles must never be the reason for a horizontal scrollbar */
+.met{min-width:0}
+.met .v{overflow-wrap:anywhere}
+
+/* the funnel rows shrink gracefully in a narrow work area */
+@media (max-width:1500px){ .fun-row{grid-template-columns:120px 1fr 58px} }
+@media (max-width:1200px){ .fun-row{grid-template-columns:100px 1fr 52px;font-size:12px} }
+
+/* snapshot panel: no fixed minimum that forces overflow */
+.snap{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.snap div .v{overflow-wrap:anywhere}
+
+/* ==================================================================
+   Selection, bulk toolbar, permissive-mode warnings
+   ================================================================== */
+.selbox{width:15px;height:15px;border:1.5px solid var(--line);background:#fff;border-radius:3px;
+  display:inline-grid;place-items:center;cursor:pointer;color:#fff;font-size:10px;
+  flex:none;vertical-align:middle}
+.selbox:hover{border-color:var(--blue)}
+.selbox.on{background:var(--blue);border-color:var(--blue)}
+tbody tr.sel{background:var(--blue-sf)!important}
+.selbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:var(--nav);
+  color:#fff;border-radius:3px;padding:7px 11px;margin-bottom:11px;font-size:12.5px}
+.selbar b{font-weight:600;margin-right:4px}
+.selbar .sp{flex:1}
+.selbar .btn.ghost{background:transparent;border-color:rgba(255,255,255,.4);color:#fff}
+.selbar .btn.ghost:hover{background:rgba(255,255,255,.16);color:#fff}
+
+.warn-note{font-size:11.5px;color:var(--warn);margin-top:4px;font-weight:500}
+.f.soft input,.f.soft textarea,.f.soft select{border-color:var(--coach-line);background:#FFFDF7}
+
+/* ---------- pipeline drag and drop ---------- */
+.chip{cursor:grab}
+.chip:active{cursor:grabbing}
+.chip.dragging{opacity:.45;border-style:dashed}
+.rung-b.over{background:var(--blue-sf);box-shadow:inset 0 0 0 2px var(--blue)}
+
+/* ==================================================================
+   Slide-out record preview
+   ================================================================== */
+.peek{position:fixed;top:0;right:0;bottom:0;width:min(430px,92vw);background:#fff;z-index:38;
+  box-shadow:-10px 0 30px rgba(20,30,45,.22);display:flex;flex-direction:column;
+  border-left:1px solid var(--line)}
+.peek-h{background:var(--green);color:#fff;padding:9px 11px;display:flex;align-items:center;gap:9px;flex:none}
+.peek-h .ricon{width:22px;height:22px;border-radius:3px;background:rgba(255,255,255,.18);
+  display:grid;place-items:center;flex:none;font-size:12px}
+.peek-h .nm{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.peek-h .sb{font-size:11.5px;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.peek-h .btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.5);color:#fff;flex:none}
+.peek-h .btn:hover{background:rgba(255,255,255,.28)}
+.peek-h .x{background:none;border:0;color:#fff;font-size:20px;line-height:1;cursor:pointer;
+  opacity:.85;flex:none;padding:0 2px}
+.peek-h .x:hover{opacity:1}
+.peek-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:#fff;flex:none;overflow-x:auto}
+.peek-tabs a{padding:9px 11px;font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink2);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.peek-tabs a:hover{background:var(--surface2);color:var(--ink)}
+.peek-tabs a.on{color:var(--blue);border-bottom-color:var(--blue)}
+.peek-tabs a .ct{font-weight:400;opacity:.75}
+.peek-b{flex:1;overflow:auto}
+.peek-b .detail th{width:42%}
+@media (max-width:700px){ .peek{width:100vw} }
