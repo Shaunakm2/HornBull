@@ -241,6 +241,9 @@ function generatePool(db){
         phone:phone,email:email,years:years,mine:false,
         cvName:name.replace(/[^A-Za-z]+/g,'_')+'_CV.txt',cvAt:iso(dOff(-Math.floor(r()*300)))};
       c.cv=buildCV(r,name,role,vert,loc,skills,certs,years,email,phone);
+      c.certs=certs;
+      c.files=[{id:uid('FL'),name:c.cvName,type:'Resume',isResume:true,
+        at:new Date(c.cvAt).toISOString(),by:c.owner,text:c.cv}];
       db.candidates.push(c);made++;
     }
   });
@@ -451,7 +454,8 @@ function seed(){
   SEQ={};
   var db={leads:[],opps:[],companies:[],contacts:[],candidates:[],jobs:[],subs:[],
     appts:[],placements:[],times:[],notes:[],tasks:[],tearsheets:[],savedSearches:[],
-    notifs:[],training:true,permissive:true,blockTimeOnOnboarding:true,audit:[],quiz:null,assess:null,tourSeen:false};
+    notifs:[],training:true,permissive:true,blockTimeOnOnboarding:true,parserOverwritePrevention:false,
+    config:defaultConfig(),audit:[],quiz:null,assess:null,tourSeen:false};
 
   function co(name,cat,owner,status,since){
     var c={id:uid('CL'),name:name,category:cat,owner:owner,status:status,since:since,mine:false,
@@ -468,6 +472,10 @@ function seed(){
     var j={id:uid('JO'),companyId:co.id,contactId:contact.id,title:title,type:type,status:status,
       openings:openings,filled:filled,payRate:pay,billRate:bill,location:loc,owner:owner,
       added:iso(opened),startDate:iso(dOff(14)),duration:'6 months',category:cat,published:false,
+      employmentType:(type==='Direct Hire'?'Permanent':'W2'),
+      salary:(type==='Direct Hire'?Math.round(bill*2000):0),
+      flatFee:(type==='Direct Hire'?Math.round(bill*2000*0.2):0),
+      assignedUsers:[owner],
       mine:false,closedReason:null,
       description:'Shift-based role. Client expects two client submissions per week and no unexplained gaps over 60 days.'};
     db.jobs.push(j);return j;
@@ -625,6 +633,8 @@ function seed(){
       c.cv=buildCV(r,c.name,c.occupation,vert,c.location,c.skills,certs,c.years,c.email,c.phone);
       c.cvName=c.name.replace(/[^A-Za-z]+/g,'_')+'_CV.txt';
       c.cvAt=iso(dOff(-Math.floor(r()*120)));
+      c.files=[{id:uid('FL'),name:c.cvName,type:'Resume',isResume:true,
+        at:new Date(c.cvAt).toISOString(),by:c.owner||'A. Rao',text:c.cv}];
     });
   })();
   return db;
@@ -914,7 +924,7 @@ A.convertOpp=function(id){
 };
 
 A.addCompany=function(){
-  openForm({title:'Add Company',
+  openForm({title:'Add Company',entity:'company',
     intro:'The company is the parent record. Contacts, job orders and placements all hang off it, so the name, owner and status must be right the first time.',
     fields:[
       {k:'name',label:'Company name',type:'text',required:true,hint:'Legal trading name, not an abbreviation.'},
@@ -936,7 +946,7 @@ A.addCompany=function(){
 
 A.addContact=function(companyId){
   if(!DB.companies.length){toast('Add a company first','no');return;}
-  openForm({title:'Add Contact',
+  openForm({title:'Add Contact',entity:'contact',
     intro:'A job order cannot be raised without a named contact. This is the person who receives sendouts and gives feedback.',
     fields:[
       {k:'companyId',label:'Company',type:'select',required:true,value:companyId||'',
@@ -962,7 +972,7 @@ A.addJob=function(companyId,fromOpp){
   var cos=DB.companies.filter(function(c){return coContacts(c.id).length;});
   if(!cos.length){toast('No company has a contact yet','no');return;}
   var pick=companyId&&coContacts(companyId).length?companyId:cos[0].id;
-  openForm({title:fromOpp?'Convert Opportunity to Job Order':'Add Job Order',
+  openForm({title:fromOpp?'Convert Opportunity to Job Order':'Add Job Order',entity:'jobOrder',
     intro:fromOpp
       ?'Converting carries the company, contact and type across. The opportunity closes as Won so the forecast and the live requirement do not double count.'
       :'The job order is the unit of work. Type, openings and rates drive coverage, margin and every downstream report.',
@@ -974,12 +984,21 @@ A.addJob=function(companyId,fromOpp){
         hint:'Sendouts go to this person.'},
       {k:'title',label:'Job title',type:'text',required:true,value:fromOpp?fromOpp.title:'',
         hint:'Use the client\u2019s own title, not an internal shorthand.'},
-      {k:'type',label:'Job order type',type:'select',required:true,options:JO_TYPE,value:fromOpp?fromOpp.type:'Contract',
+      {k:'type',label:'Job order type',type:'select',required:true,options:JO_TYPE,
+        value:fromOpp?fromOpp.type:'Contract',reRender:true,
         hint:'Contract and Contract To Hire are rate based. Direct Hire is fee based and has no timesheets.'},
       {k:'category',label:'Category',type:'select',required:true,options:CATEGORIES},
       {k:'openings',label:'Openings',type:'number',required:true,value:1,minNum:1},
-      {k:'payRate',label:'Pay rate per hour',type:'number',required:true,minNum:1},
-      {k:'billRate',label:'Bill rate per hour',type:'number',required:true,minNum:1},
+      {k:'employmentType',label:'Employment type',type:'select',required:true,
+        optionsFrom:function(v){return EMP_BY_TYPE[v.type]||EMP_TYPE;},
+        hint:'Permanent applies to a direct hire; contract work is W2, 1099 or Corp to Corp.'},
+      {k:'payRate',label:'Pay rate per hour',type:'number',minNum:1,
+        hint:'Contract and contract to hire only.'},
+      {k:'billRate',label:'Bill rate per hour',type:'number',minNum:1,
+        hint:'Contract and contract to hire only.'},
+      {k:'salary',label:'Salary',type:'number',minNum:1,hint:'Direct hire only.'},
+      {k:'flatFee',label:'Flat fee',type:'number',minNum:1,
+        hint:'Direct hire only. The fee invoiced on placement.'},
       {k:'location',label:'Location',type:'text',required:true},
       {k:'startDate',label:'Anticipated start date',type:'date',required:true,value:iso(dOff(21))},
       {k:'description',label:'Job description',type:'textarea',required:true,min:40,
@@ -987,14 +1006,25 @@ A.addJob=function(companyId,fromOpp){
     ],
     validate:function(v){
       var e={};
-      if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate, otherwise the job order carries no margin.';
+      if(v.type==='Direct Hire'){
+        if(!v.salary)e.salary='HARD STOP: a direct hire needs a salary. There are no hourly rates to bill against.';
+        else if(!v.flatFee)e.flatFee='A direct hire needs a flat fee, otherwise the placement cannot be invoiced.';
+      } else {
+        if(!v.payRate)e.payRate='HARD STOP: contract work needs a pay rate.';
+        else if(!v.billRate)e.billRate='HARD STOP: contract work needs a bill rate.';
+        else if(Number(v.billRate)<=Number(v.payRate))
+          e.billRate='HARD STOP: bill rate must exceed pay rate, otherwise the job order carries no margin.';
+      }
       return e;
     },
     submit:fromOpp?'Convert to Job Order':'Save Job Order',
     onSubmit:function(v){
       var j={id:uid('JO'),companyId:v.companyId,contactId:v.contactId,title:v.title,type:v.type,
         category:v.category,status:'Accepting Candidates',openings:Number(v.openings),filled:0,
-        payRate:Number(v.payRate),billRate:Number(v.billRate),location:v.location,owner:'A. Trainee',
+        employmentType:v.employmentType,
+        payRate:Number(v.payRate)||0,billRate:Number(v.billRate)||0,
+        salary:Number(v.salary)||0,flatFee:Number(v.flatFee)||0,
+        location:v.location,owner:'A. Trainee',assignedUsers:['A. Trainee'],
         added:iso(TODAY),startDate:v.startDate,duration:'6 months',published:false,
         description:v.description,mine:true,closedReason:null};
       DB.jobs.push(j);
@@ -1078,7 +1108,7 @@ function dupCheck(v,selfId){
   return hit;
 }
 A.addCandidate=function(jobId){
-  openForm({title:'Add Candidate',
+  openForm({title:'Add Candidate',entity:'candidate',
     intro:'Duplicate candidate records split activity history and corrupt every ratio built on candidate volume. Check before you create.',
     fields:[
       {k:'name',label:'Name',type:'text',required:true},
@@ -1781,7 +1811,8 @@ var SCENARIOS={
       {t:'Add at least two of them to a job order pipeline',h:'Add selected to pipeline. Watch what gets blocked',
        c:function(){return mySubs().length>=2;}},
       {t:'Upload or replace a CV',h:'Candidate → Upload CV. Text is what makes it searchable',
-       c:function(){return DB.audit.some(function(a){return /CV$/.test(a.action);});}},
+       c:function(){return DB.audit.some(function(a){
+         return /resume file|Parsed resume/i.test(a.action);});}},
       {t:'Correct a record you own',h:'Any Edit button. The change is logged field by field',
        c:function(){return DB.audit.some(function(a){return /^Edited /.test(a.action);});}},
       {t:'Save the dataset to the local database',h:'Database → Save now',
@@ -1960,11 +1991,16 @@ A.editJob=function(id){
       {k:'title',label:'Job title',type:'text',required:true,value:j.title},
       {k:'contactId',label:'Contact',type:'select',required:true,value:j.contactId,
         options:coContacts(j.companyId).map(function(c){return {v:c.id,t:c.name+' · '+c.title};})},
-      {k:'type',label:'Job order type',type:'select',required:true,options:JO_TYPE,value:j.type},
+      {k:'type',label:'Job order type',type:'select',required:true,options:JO_TYPE,value:j.type,reRender:true},
       {k:'category',label:'Category',type:'select',required:true,options:CATEGORIES,value:j.category},
       {k:'openings',label:'Openings',type:'number',required:true,minNum:1,value:j.openings},
-      {k:'payRate',label:'Pay rate per hour',type:'number',required:true,minNum:1,value:j.payRate},
-      {k:'billRate',label:'Bill rate per hour',type:'number',required:true,minNum:1,value:j.billRate},
+      {k:'employmentType',label:'Employment type',type:'select',required:true,
+        value:j.employmentType||(j.type==='Direct Hire'?'Permanent':'W2'),
+        optionsFrom:function(v){return EMP_BY_TYPE[v.type]||EMP_TYPE;}},
+      {k:'payRate',label:'Pay rate per hour',type:'number',minNum:0,value:j.payRate},
+      {k:'billRate',label:'Bill rate per hour',type:'number',minNum:0,value:j.billRate},
+      {k:'salary',label:'Salary',type:'number',minNum:0,value:j.salary||''},
+      {k:'flatFee',label:'Flat fee',type:'number',minNum:0,value:j.flatFee||''},
       {k:'location',label:'Location',type:'text',required:true,value:j.location},
       {k:'startDate',label:'Anticipated start date',type:'date',required:true,value:j.startDate},
       {k:'duration',label:'Duration',type:'text',required:true,value:j.duration},
@@ -1973,7 +2009,10 @@ A.editJob=function(id){
     ],
     validate:function(v){
       var e={};
-      if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate.';
+      if(v.type==='Direct Hire'){
+        if(!v.salary)e.salary='HARD STOP: a direct hire needs a salary.';
+      } else if(Number(v.billRate)<=Number(v.payRate))
+        e.billRate='HARD STOP: bill rate must exceed pay rate.';
       if(Number(v.openings)<j.filled)
         e.openings='There are already '+j.filled+' placement(s) against this job order. Openings cannot go below that.';
       var lowering=Number(v.billRate)<j.billRate;
@@ -1993,7 +2032,8 @@ A.editJob=function(id){
         ['duration',j.duration,v.duration],
         ['description',j.description.length+' chars',v.description.length+' chars']]);
       j.title=v.title;j.contactId=v.contactId;j.type=v.type;j.category=v.category;
-      j.openings=Number(v.openings);j.payRate=Number(v.payRate);j.billRate=Number(v.billRate);
+      j.openings=Number(v.openings);j.payRate=Number(v.payRate)||0;j.billRate=Number(v.billRate)||0;
+      j.salary=Number(v.salary)||0;j.flatFee=Number(v.flatFee)||0;j.employmentType=v.employmentType;
       j.location=v.location;j.startDate=v.startDate;j.duration=v.duration;j.description=v.description;
       if(j.status==='Filled'&&j.filled<j.openings)j.status='Accepting Candidates';
       render();
@@ -2241,10 +2281,12 @@ A.uploadCV=function(id){
     var had=!!c.cv;
     c.cv=txt;c.cvName=pending.name||(c.name.replace(/[^A-Za-z]+/g,'_')+'_CV.txt');
     c.cvAt=iso(TODAY);
-    log(had?'Replaced CV':'Uploaded CV',c.name+' · '+c.cvName+' · '+txt.split(/\s+/).filter(Boolean).length+' words');
+    addFile(c,c.cvName,'Resume',true,txt);
+    log(had?'Replaced the resume file':'Attached a resume file',
+      c.name+' · '+c.cvName+' · '+txt.split(/\s+/).filter(Boolean).length+' words');
     root.innerHTML='';
-    toast(had?'CV replaced':'CV uploaded','ok');
-    go('candidate',c.id,'cv');
+    toast('File attached. Use Parse as Existing to update the record from it.','ok');
+    go('candidate',c.id,'files');
   });
   root.querySelector('[data-scrim]').addEventListener('mousedown',function(e){
     if(e.target===root.querySelector('[data-scrim]'))root.innerHTML='';});
@@ -2739,13 +2781,14 @@ function openForm(cfg){
       '<div class="modal-b">'+((cfg.intro&&DB.training!==false)?'<div class="callout">'+esc(cfg.intro)+'</div>':'')+
       cfg.fields.map(function(f){
         var bad=errs[f.k]?(soft?' soft':' bad'):'',id='fld-'+f.k;
+        var isReq=isRequired(cfg.entity,f.k,f.required);
         if(f.type==='check'){
           return '<div class="f cb'+bad+'"><input type="checkbox" id="'+id+'" data-f="'+f.k+'"'+(vals[f.k]?' checked':'')+'>'+
             '<div><label for="'+id+'">'+esc(f.label)+'</label>'+
             (f.hint?'<div class="hint">'+esc(f.hint)+'</div>':'')+
             (errs[f.k]?'<div class="'+(soft?'warn-note':'err')+'">'+esc(errs[f.k])+'</div>':'')+'</div></div>';
         }
-        var lab='<label for="'+id+'">'+esc(f.label)+(f.required?' <span title="required">*</span>':'')+'</label>',body='';
+        var lab='<label for="'+id+'">'+esc(f.label)+(isReq?' <span title="required">*</span>':'')+'</label>',body='';
         if(f.type==='textarea')body='<textarea id="'+id+'" data-f="'+f.k+'">'+esc(vals[f.k])+'</textarea>';
         else if(f.type==='select'){
           var opts=fieldOptions(f,vals);
@@ -2798,8 +2841,12 @@ function openForm(cfg){
     errs={};
     cfg.fields.forEach(function(f){
       var v=vals[f.k];
-      if(f.type==='check'){if(f.required&&!v)errs[f.k]='You must confirm this before continuing.';return;}
-      if(f.required&&(v===''||v==null)){errs[f.k]='This field is required.';return;}
+      var req=isRequired(cfg.entity,f.k,f.required);
+      if(f.type==='check'){if(req&&!v)errs[f.k]='You must confirm this before continuing.';return;}
+      if(req&&(v===''||v==null)){errs[f.k]='This field is required.';return;}
+      if(!req&&(v===''||v==null)&&f.softRequired){
+        errs[f.k]=f.softRequired;return;
+      }
       if(f.min&&String(v).trim().length<f.min)errs[f.k]='Needs at least '+f.min+' characters. Currently '+String(v).trim().length+'.';
       if(f.type==='number'&&v!==''){
         if(isNaN(Number(v)))errs[f.k]='Enter a number.';
@@ -2866,6 +2913,7 @@ var MENU=[
   {g:'Tools'},
   {v:'reports',t:'Reports'},
   {v:'data',t:'Database'},
+  {v:'config',t:'Configuration'},
   {v:'notes',t:'All Notes',ct:function(){return DB.notes.length;}},
   {v:'audit',t:'Activity Log',ct:function(){return DB.audit.length;}},
   {v:'guide',t:'Guide'}
@@ -2948,7 +2996,11 @@ function chevBar(reached,current,out){
     if(out&&i>reached)cls='';
     else if(i===current)cls=out?'out':'now';
     else if(i<=reached)cls='done';
-    return '<div class="chevs '+cls+'"><span>'+esc(out&&i===current?out:label)+'</span></div>';
+    var reachedIx=i<=reached?i:-1;
+    return '<div class="chevs '+cls+'"'+
+      (reachedIx>=0?' data-act="stage-open" data-id="'+esc(PIPE_K[i]||'')+'" role="button" '+
+        'tabindex="0" title="Open the submission at '+esc(PIPE_K[i]||'')+'"':'')+
+      '><span>'+esc(out&&i===current?out:label)+'</span></div>';
   }).join('')+'</div>';
 }
 function panelIcons(){
@@ -2977,13 +3029,80 @@ function crumb(parts){
     return sep+'<span class="lnk" data-go="'+p.v+'"'+(p.id?' data-id="'+p.id+'"':'')+'>'+esc(p.t)+'</span>';
   }).join('')+'</div>';
 }
-function rtabs(items,active,view,id){
+function rtabs(items,active,view,id,entity){
+  if(entity)items=visibleTabs(entity,items);
   return '<div class="rtabs">'+items.map(function(it){
     if(it.act)
       return '<a data-act="'+it.act+'" data-id="'+id+'" role="button" tabindex="0">'+esc(it.t)+'</a>';
     return '<a data-rtab="'+it.k+'" data-go="'+view+'" data-id="'+id+'" class="'+(active===it.k?'on':'')+'" role="button" tabindex="0">'+
       esc(it.t)+(it.ct!=null?'<span class="ct">'+it.ct+'</span>':'')+'</a>';
+  }).join('')+
+  (entity?'<a class="layout" data-go="config" role="button" tabindex="0" '+
+    'title="Show, hide and reorder these tabs">Layout \u2699</a>':'')+
+  '</div>';
+}
+/* Activity is wider than Notes: status changes, sendouts, appointments and placements
+   all belong on it, which is what makes the tab worth having separately. */
+function activityFor(candId){
+  var out=[];
+  notesFor('candidateId',candId).forEach(function(n){
+    out.push({at:n.at,by:n.by,kind:n.action==='Email'?'Email':'Note',
+      t:n.action+': '+n.text.split('\n')[0].slice(0,140)});
+  });
+  candSubs(candId).forEach(function(sb){
+    (sb.history||[]).forEach(function(h){
+      out.push({at:h.at,by:h.by,kind:'Status',
+        t:'Submission on '+jobName(sb.jobId)+' \u2192 '+h.status});
+    });
+    if(sb.sendoutAt)out.push({at:sb.sendoutAt,by:sb.owner,kind:'Sendout',
+      t:'Sent to '+ctName(sb.sentTo)+' for '+jobName(sb.jobId)});
+  });
+  DB.appts.filter(function(a){return a.candidateId===candId;}).forEach(function(a){
+    out.push({at:a.at,by:'A. Trainee',kind:'Appointment',
+      t:a.subject+' \u00b7 '+a.location+' \u00b7 '+a.attendees});
+  });
+  DB.placements.filter(function(p){return p.candidateId===candId;}).forEach(function(p){
+    out.push({at:new Date(p.start).toISOString(),by:p.createdBy||'A. Rao',kind:'Placement',
+      t:'Placement on '+jobName(p.jobId)+' \u00b7 '+p.status});
+  });
+  return out.sort(function(a,b){return new Date(b.at)-new Date(a.at);});
+}
+var ACT_ICON={Note:'\u270E',Email:'\u2709',Status:'\u21BB',Sendout:'\u21AA',
+  Appointment:'\u25F7',Placement:'\u2714',Task:'\u2713'};
+function activityList(rows,empty){
+  if(!rows.length)return '<div class="muted" style="font-size:13px">'+esc(empty)+'</div>';
+  return '<div class="tl">'+rows.slice(0,60).map(function(r){
+    return '<div class="tl-i"><div class="m">'+esc(ACT_ICON[r.kind]||'\u2022')+' '+esc(r.kind)+
+      ' \u00b7 '+esc(r.by||'')+' \u00b7 '+esc(fmtDT(r.at))+'</div>'+
+      '<div class="t">'+esc(r.t)+'</div></div>';
   }).join('')+'</div>';
+}
+function filesPanel(c){
+  var fs=fileList(c);
+  return '<div class="card"><div class="card-h"><h4>Files</h4>'+panelIcons()+'</div>'+
+    (fs.length?'<table><thead><tr><th>Name</th><th>Type</th><th>Added</th><th>By</th><th></th></tr></thead><tbody>'+
+      fs.map(function(f){
+        return '<tr><td style="font-weight:600">'+esc(f.name)+
+          (f.isResume?' <span class="pill p-open">resume</span>':'')+'</td>'+
+          '<td class="muted">'+esc(f.type)+'</td><td class="muted">'+fmtD(f.at)+'</td>'+
+          '<td class="muted">'+esc(f.by)+'</td>'+
+          '<td style="text-align:right">'+
+            (f.isResume?'<button class="btn sm" data-act="parse-existing" data-cand="'+c.id+
+              '" data-id="'+f.id+'">Parse as Existing</button> ':'')+
+            '<button class="btn ghost sm" data-act="file-actions" data-cand="'+c.id+
+              '" data-id="'+f.id+'">Actions \u25BE</button></td></tr>';
+      }).join('')+'</tbody></table>'
+    :'<div class="empty" style="padding:20px"><b>No files on this record</b>'+
+      'A resume attached here does not change the record until you parse it.'+
+      '<div style="margin-top:10px"><button class="btn" data-act="upload-cv" data-id="'+c.id+
+      '">Attach a resume</button></div></div>')+
+    '<div class="card-b" style="border-top:1px solid var(--line2)">'+
+      '<div class="f cb" style="margin:0"><input type="checkbox" id="pov" role="switch" data-act="parser-toggle"'+
+      (DB.parserOverwritePrevention?' checked':'')+'>'+
+      '<div><label for="pov">Overwrite prevention</label>'+
+      '<div class="hint">On: fields that already hold a value are protected from a parse, and skills '+
+      'and certifications append instead of replacing. Off is the documented default.</div></div></div>'+
+    '</div></div>';
 }
 function noteList(notes,empty){
   if(!notes.length)return '<div class="muted" style="font-size:13px">'+esc(empty)+'</div>';
@@ -3370,7 +3489,8 @@ function vJob(){
     rtabs([{k:'overview',t:'Overview'},{k:'pipeline',t:'Submissions',ct:live.length},
       {k:'appts',t:'Activity',ct:appts.length},{k:'notes',t:'Notes',ct:notes.length},
       {k:'placements',t:'Placements',ct:pls.length},
-      {k:'edit',t:'Edit',act:'edit-job'}],tab,'job',j.id);
+      {k:'files',t:'Files',ct:(j.files||[]).length},
+      {k:'edit',t:'Edit',act:'edit-job'}],tab,'job',j.id,'job');
 
   var body='';
   if(tab==='pipeline'){
@@ -3417,17 +3537,22 @@ function vJob(){
       '<div><div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Compensation</h4>'+panelIcons()+'</div>'+
       detailRows(j.type==='Direct Hire'
         ?[['Salary',j.salary?money(j.salary):'not recorded'],
-          ['Fee Percentage',j.feePct?j.feePct+'%':'not recorded'],
-          ['Estimated Fee',(j.salary&&j.feePct)?money(Math.round(j.salary*j.feePct/100)):'—']]
+          ['Flat Fee',j.flatFee?money(j.flatFee):'not recorded'],
+          ['Fee as % of Salary',(j.salary&&j.flatFee)?Math.round(j.flatFee/j.salary*100)+'%':'\u2014'],
+          ['Timesheets','Not applicable on a direct hire']]
         :[['Pay Rate',money(j.payRate)+' /hr'],['Bill Rate',money(j.billRate)+' /hr'],
-          ['Spread',money(j.billRate-j.payRate)+' /hr'],
-          ['Markup',markup(j.payRate,j.billRate)+'%'],
+          ['Mark-up Value',money(j.billRate-j.payRate)+' /hr'],
+          ['Mark-up %',markup(j.payRate,j.billRate)+'%'],
           ['Gross Margin',marginPill(j.payRate,j.billRate)+' '+esc(marginBand(j.payRate,j.billRate).t),1]])+
       '</div>'+
       '<div class="card"><div class="card-h"><h4>Job Description</h4>'+panelIcons()+'</div>'+
       '<div class="card-b"><p style="margin:0;font-size:13px;max-width:64ch">'+esc(j.description)+'</p>'+
       (j.closedReason?'<p class="muted" style="font-size:12px;margin:10px 0 0">Status reason: '+
         esc(j.closedReason)+'</p>':'')+'</div></div></div></div>';
+  } else if(tab==='files'){
+    body='<div class="card"><div class="card-h"><h4>Files</h4>'+panelIcons()+'</div>'+
+      '<div class="empty" style="padding:22px"><b>No files on this job order</b>'+
+      'Job specifications and client paperwork would be attached here.</div></div>';
   } else if(tab==='appts'){
     body=appts.length?'<div class="tw"><table><thead><tr><th>Subject</th><th>When</th><th>Format</th><th>Attendees</th></tr></thead><tbody>'+
       appts.map(function(a){
@@ -3472,11 +3597,14 @@ function vCandidate(){
       '<button class="btn ghost" data-act="actions" data-type="candidate" data-id="'+c.id+'">Actions \u25BE</button>',
     sub:esc(c.occupation)+' &middot; '+esc(c.location)+' &middot; '+esc(c.status)+
       ' &middot; sourced via '+esc(c.source)+' &middot; record <span class="mono">'+esc(c.id)+'</span>'})+
-    rtabs([{k:'overview',t:'Overview'},{k:'notes',t:'Notes',ct:notes.length},
+    rtabs([{k:'overview',t:'Overview'},{k:'activity',t:'Activity',ct:activityFor(c.id).length},
+      {k:'notes',t:'Notes',ct:notes.length},
       {k:'subs',t:'Submissions',ct:subs.length},
       {k:'placements',t:'Placements',ct:pls.length},
-      {k:'cv',t:'Resume',ct:c.cv?'1':'0'},{k:'sheets',t:'Tearsheets',ct:sheets.length},
-      {k:'edit',t:'Edit',act:'edit-candidate'}],tab,'candidate',c.id)+
+      {k:'files',t:'Files',ct:fileList(c).length},
+      {k:'resume',t:'Resume',ct:c.cv?'1':'0'},
+      {k:'sheets',t:'Tearsheets',ct:sheets.length},
+      {k:'edit',t:'Edit',act:'edit-candidate'}],tab,'candidate',c.id,'candidate')+
     chevBar(best,best,bestOut);
 
   var body='';
@@ -3507,10 +3635,19 @@ function vCandidate(){
         var mine=DB.tasks.filter(function(t){return !t.done&&t.entity===c.id;});
         return mine.length?taskTable(mine):'<div class="muted" style="font-size:13px">No open tasks on this record.</div>';
       })()+'</div></div></div></div>';
-  } else if(tab==='cv'){
+  } else if(tab==='activity'){
+    body='<div class="card"><div class="card-h"><h4>Activity</h4>'+panelIcons()+'</div><div class="card-b">'+
+      activityList(activityFor(c.id),'Nothing has happened on this record yet.')+'</div></div>';
+  } else if(tab==='files'){
+    body=filesPanel(c);
+  } else if(tab==='resume'||tab==='cv'){
+    var rf=resumeFile(c);
     body=c.cv
-      ?'<div class="card"><div class="card-h"><h4>'+esc(c.cvName||'CV')+'</h4><span class="sp"></span>'+
-        '<span class="muted mono">'+c.cv.split(/\s+/).filter(Boolean).length+' words · added '+fmtD(c.cvAt)+'</span>'+
+      ?'<div class="card"><div class="card-h"><h4>'+esc(c.cvName||'Resume')+'</h4>'+
+        '<span class="pill p-open">parsed text</span><span class="sp"></span>'+
+        '<span class="muted mono">'+c.cv.split(/\s+/).filter(Boolean).length+' words \u00b7 added '+fmtD(c.cvAt)+'</span>'+
+        (rf?'<button class="btn sm" data-act="parse-existing" data-cand="'+c.id+'" data-id="'+rf.id+
+          '">Parse as Existing</button>':'')+
         '<button class="btn ghost sm" data-act="upload-cv" data-id="'+c.id+'">Replace</button></div>'+
         '<div class="card-b"><pre style="margin:0;white-space:pre-wrap;font-family:var(--mono);font-size:12px;'+
         'line-height:1.55;max-width:96ch">'+esc(c.cv)+'</pre></div></div>'
@@ -4050,7 +4187,8 @@ function vSession(){
   L.push('');
   L.push('Sourcing activity:');
   L.push('  Boolean searches run '+DB.audit.filter(function(a){return a.action==='Ran boolean search';}).length+
-    ' · CVs uploaded or replaced '+DB.audit.filter(function(a){return /CV$/.test(a.action);}).length+
+    ' · Resumes attached or parsed '+DB.audit.filter(function(a){
+      return /resume file|Parsed resume/i.test(a.action);}).length+
     ' · Records edited '+DB.audit.filter(function(a){return /^Edited /.test(a.action);}).length);
   L.push('  Candidate pool '+DB.candidates.length+' records, '+
     DB.candidates.filter(function(c){return !!c.cv;}).length+' with a searchable CV');
@@ -4677,6 +4815,447 @@ A.email=function(ctx){
   draw();
 };
 
+/* ================================================================ files + resume parsing
+   Per the documentation: a file being attached is not the same as the record being
+   updated. Updating happens through Files -> the resume -> Actions -> Parse as Existing,
+   which previews current against proposed values and lets each field be deselected.
+   parserOverwritePrevention protects populated fields and appends to the list fields. */
+
+function fileList(c){ if(!c.files)c.files=[]; return c.files; }
+function resumeFile(c){
+  return fileList(c).filter(function(f){return f.isResume;})
+    .sort(function(a,b){return new Date(b.at)-new Date(a.at);})[0]||null;
+}
+function addFile(c,name,type,isResume,text){
+  var f={id:uid('FL'),name:name,type:type||'Resume',isResume:!!isResume,
+    at:new Date().toISOString(),by:'A. Trainee',text:text||''};
+  fileList(c).unshift(f);
+  return f;
+}
+
+/* --- a deliberately simple parser, matched to the CV shape used in this sandbox --- */
+function parseCV(text){
+  var out={};
+  var lines=String(text||'').split('\n');
+  var head=(lines[1]||'').split('|').map(function(x){return x.trim();});
+  if(head.length>=2){
+    if(head[0])out.occupation=head[0];
+    if(head[1])out.location=head[1];
+  }
+  head.forEach(function(x){
+    if(x.indexOf('@')>0)out.email=x;
+    else if(/^\+?[\d\s()-]{7,}$/.test(x))out.phone=x;
+  });
+  function section(name){
+    var i=-1;
+    for(var k=0;k<lines.length;k++)
+      if(lines[k].trim().toUpperCase()===name){i=k;break;}
+    if(i<0)return '';
+    var buf=[];
+    for(var j=i+1;j<lines.length;j++){
+      var L=lines[j];
+      if(/^[A-Z][A-Z &]+$/.test(L.trim())&&L.trim().length>3)break;
+      if(L.trim())buf.push(L.trim());
+    }
+    return buf.join(' ');
+  }
+  var sk=section('KEY SKILLS');
+  if(sk)out.skills=sk.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  var ce=section('CERTIFICATIONS');
+  if(ce)out.certs=ce.split(',').map(function(x){return x.trim();}).filter(Boolean);
+  var yrs=/(\d+)\s+years/.exec(section('PROFESSIONAL SUMMARY'));
+  if(yrs)out.years=Number(yrs[1]);
+  return out;
+}
+
+var PARSE_FIELDS=[
+  {k:'occupation',label:'Occupation'},
+  {k:'location',label:'Address'},
+  {k:'email',label:'Email 1'},
+  {k:'phone',label:'Mobile Phone'},
+  {k:'years',label:'Years of Experience'},
+  {k:'skills',label:'Primary Skills',list:true},
+  {k:'certs',label:'Certifications',list:true}
+];
+
+A.parseExisting=function(candId,fileId){
+  var c=byId(DB.candidates,candId);
+  if(!c)return;
+  var f=fileList(c).filter(function(x){return x.id===fileId;})[0];
+  var text=(f&&f.text)||c.cv;
+  if(!text){toast('That file has no readable text to parse','no');return;}
+  var pr=parseCV(text);
+  var prevent=DB.parserOverwritePrevention===true;
+
+  var rows=PARSE_FIELDS.map(function(fd){
+    var cur=fd.list?(c[fd.k]||[]).join(', '):(c[fd.k]==null?'':String(c[fd.k]));
+    var pro=fd.list?(pr[fd.k]||[]).join(', '):(pr[fd.k]==null?'':String(pr[fd.k]));
+    if(!pro)return null;
+    var same=cur.trim().toLowerCase()===pro.trim().toLowerCase();
+    /* Overwrite prevention: populated fields are protected, list fields append. */
+    var blocked=prevent&&cur&&!fd.list;
+    return {fd:fd,cur:cur,pro:pro,same:same,blocked:blocked,
+      on:!same&&!blocked};
+  }).filter(Boolean);
+
+  if(!rows.length){
+    openInfo('Nothing to update','The parser did not find anything in this file that differs from the record.','','warn');
+    return;
+  }
+  var sel={};
+  rows.forEach(function(r,i){sel[i]=r.on;});
+  var root=document.getElementById('modal-root');
+
+  function draw(){
+    root.innerHTML='<div class="scrim" data-scrim><div class="modal wide" role="dialog" aria-modal="true">'+
+      '<div class="modal-h"><h4>Parse as Existing</h4><p>'+esc(c.name)+' \u00b7 '+
+        esc((f&&f.name)||'resume')+'</p></div>'+
+      '<div class="modal-b">'+
+        (DB.training!==false?'<div class="callout">Attaching a file does not change the record. This screen '+
+          'is where the record gets updated: review each field, clear anything you do not want taken from '+
+          'the CV, and only the ticked rows are written.</div>':'')+
+        (prevent?'<div class="callout warn"><b>Overwrite prevention is on.</b> Fields that already hold a '+
+          'value are protected and shown greyed. Skills and certifications append rather than replace.</div>':'')+
+        '<div class="tw"><table><thead><tr><th style="width:34px"></th><th>Field</th>'+
+        '<th>Current value</th><th>From the CV</th></tr></thead><tbody>'+
+        rows.map(function(r,i){
+          return '<tr'+(r.blocked?' class="muted"':'')+'>'+
+            '<td>'+(r.blocked?'<span class="muted" title="Protected by overwrite prevention">\u2014</span>'
+              :'<span class="selbox'+(sel[i]?' on':'')+'" data-prow="'+i+'" role="checkbox" '+
+               'tabindex="0" aria-checked="'+(!!sel[i])+'">'+(sel[i]?'\u2713':'')+'</span>')+'</td>'+
+            '<td style="font-weight:600">'+esc(r.fd.label)+'</td>'+
+            '<td class="muted" style="max-width:26ch;overflow-wrap:anywhere">'+
+              (r.cur?esc(r.cur):'<i>empty</i>')+'</td>'+
+            '<td style="max-width:26ch;overflow-wrap:anywhere">'+esc(r.pro)+
+              (r.same?' <span class="pill p-flat">no change</span>':'')+
+              (r.blocked?' <span class="pill p-warn">protected</span>':'')+
+              (prevent&&r.fd.list&&r.cur?' <span class="pill p-open">will append</span>':'')+'</td></tr>';
+        }).join('')+'</tbody></table></div>'+
+      '</div>'+
+      '<div class="modal-f"><button class="btn ghost" data-close>Cancel</button>'+
+        '<button class="btn ghost" data-none>Clear all</button>'+
+        '<button class="btn" data-save>Update the record</button></div></div></div>';
+
+    root.querySelectorAll('[data-prow]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var i=Number(b.getAttribute('data-prow'));sel[i]=!sel[i];draw();});
+    });
+    root.querySelectorAll('[data-close]').forEach(function(b){
+      b.addEventListener('click',function(){root.innerHTML='';});});
+    root.querySelector('[data-none]').addEventListener('click',function(){
+      rows.forEach(function(r,i){sel[i]=false;});draw();});
+    root.querySelector('[data-save]').addEventListener('click',save);
+    root.querySelector('[data-scrim]').addEventListener('mousedown',function(e){
+      if(e.target===root.querySelector('[data-scrim]'))root.innerHTML='';});
+    focusable(root);
+  }
+  function save(){
+    var applied=[];
+    rows.forEach(function(r,i){
+      if(!sel[i]||r.blocked)return;
+      var k=r.fd.k;
+      if(r.fd.list){
+        var cur=c[k]||[],add=r.pro.split(',').map(function(x){return x.trim();}).filter(Boolean);
+        if(prevent){
+          add.forEach(function(x){if(cur.indexOf(x)<0)cur.push(x);});
+          c[k]=cur;
+        } else c[k]=add;
+      } else if(k==='years'){c.years=Number(r.pro);}
+      else c[k]=r.pro;
+      applied.push(r.fd.label);
+    });
+    if(!applied.length){
+      root.innerHTML='';
+      toast('Nothing was ticked, so the record is unchanged','');
+      return;
+    }
+    c.edited=new Date().toISOString();
+    log('Parsed resume as existing',c.name+' \u00b7 updated: '+applied.join(', '));
+    notify('Record updated from a resume: '+c.name,'candidate',c.id);
+    root.innerHTML='';
+    toast(applied.length+' field'+(applied.length>1?'s':'')+' updated from the CV','ok');
+    go('candidate',c.id,'files');
+  }
+  draw();
+};
+
+A.fileActions=function(candId,fileId){
+  var c=byId(DB.candidates,candId);
+  var f=fileList(c).filter(function(x){return x.id===fileId;})[0];
+  if(!f)return;
+  var root=document.getElementById('modal-root');
+  var items=[];
+  if(f.isResume){
+    items.push(['Parse as Existing','parse']);
+    items.push(['View parsed text','parsed']);
+  }
+  items.push(['Replace this file','replace']);
+  items.push(['Remove from Files','remove']);
+  root.innerHTML='<div class="scrim" data-scrim><div class="modal" style="width:min(390px,100%)" role="dialog" aria-modal="true">'+
+    '<div class="modal-h"><h4>'+esc(f.name)+'</h4><p>'+esc(f.type)+' \u00b7 added '+esc(ago(f.at))+
+      ' by '+esc(f.by)+'</p></div>'+
+    '<div class="modal-b" style="padding:8px 0">'+items.map(function(it){
+      return '<a class="lnk" style="display:block;padding:9px 16px;border-bottom:1px solid var(--line2);'+
+        'font-weight:500" data-fa="'+it[1]+'" role="button" tabindex="0">'+esc(it[0])+'</a>';
+    }).join('')+'</div>'+
+    '<div class="modal-f"><button class="btn ghost" data-close>Cancel</button></div></div></div>';
+  root.querySelectorAll('[data-close]').forEach(function(b){
+    b.addEventListener('click',function(){root.innerHTML='';});});
+  root.querySelectorAll('[data-fa]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var k=b.getAttribute('data-fa');
+      root.innerHTML='';
+      if(k==='parse')A.parseExisting(candId,fileId);
+      else if(k==='parsed')go('candidate',candId,'resume');
+      else if(k==='replace')A.uploadCV(candId);
+      else if(k==='remove'){
+        c.files=fileList(c).filter(function(x){return x.id!==fileId;});
+        log('Removed a file',f.name+' \u00b7 '+c.name);
+        toast('File removed. The record itself is unchanged.','');
+        render();
+      }
+    });
+  });
+  root.querySelector('[data-scrim]').addEventListener('mousedown',function(e){
+    if(e.target===root.querySelector('[data-scrim]'))root.innerHTML='';});
+};
+
+/* ================================================================ tenant configuration
+   Per the specification: picklist values, required fields and record tabs are configured
+   per tenant, not fixed by Bullhorn. They are held here as data and the live constants are
+   synced from it, so nothing in the views hard-codes them. */
+
+function defaultConfig(){
+  return {
+    picklists:{
+      candidateStatus:['New Lead','Active','Available','Submitted','Placed','Do Not Call','Archive'],
+      jobStatus:['Accepting Candidates','Covered','Filled','On Hold','Closed','Cancelled'],
+      submissionStatus:['New Lead','Internal Submission','Client Submission','Interview Scheduled',
+        'Offer Extended','Placed'],
+      submissionClosed:['Client Declined','Candidate Declined','Not Proceeding'],
+      placementStatus:['Pending Approval','Approved','Rejected','Completed','Terminated'],
+      companyStatus:['Prospect','Active Client','Inactive','Former Client','Do Not Contact'],
+      noteAction:['Prescreen','Outbound Call','Inbound Call','Left Message','Email','Meeting',
+        'Interview','Reference Check','Client Visit','Internal Memo','Other'],
+      candidateSource:['LinkedIn','Indeed','Job Board','Company Website','Referral',
+        'Recruiter Outreach','Other'],
+      jobType:['Contract','Contract To Hire','Direct Hire'],
+      employmentType:['W2','1099','Corp to Corp','Permanent'],
+      category:['Information Technology','Light Industrial','Admin & Clerical','Healthcare',
+        'Retail Operations']
+    },
+    requiredFields:{
+      candidate:['name','status','owner'],
+      jobOrder:['title','companyId','contactId','type','employmentType','openings'],
+      company:['name'],
+      contact:['name','companyId']
+    },
+    tabs:{
+      candidate:['overview','activity','notes','subs','placements','files','resume','sheets','edit'],
+      job:['overview','pipeline','appts','notes','placements','files','edit']
+    }
+  };
+}
+var PICK_LABEL={
+  candidateStatus:'Candidate status',jobStatus:'Job order status',
+  submissionStatus:'Submission status (pipeline)',submissionClosed:'Submission closed reasons',
+  placementStatus:'Placement status',companyStatus:'Company status',
+  noteAction:'Note action',candidateSource:'Candidate source',
+  jobType:'Job order type',employmentType:'Employment type',category:'Category / specialty'
+};
+var TAB_LABEL={overview:'Overview',activity:'Activity',notes:'Notes',subs:'Submissions',
+  placements:'Placements',files:'Files',resume:'Resume',sheets:'Tearsheets',edit:'Edit',
+  pipeline:'Submissions (pipeline)',appts:'Activity'};
+var FIELD_LABEL={name:'Name',status:'Status',owner:'Owner',email:'Email',phone:'Phone',
+  source:'Source',category:'Category',location:'Location',occupation:'Occupation',
+  desiredRate:'Desired rate',availability:'Availability',employmentPref:'Employment preference',
+  skills:'Primary skills',title:'Job title',companyId:'Company',contactId:'Contact',
+  type:'Job order type',employmentType:'Employment type',openings:'Openings',
+  payRate:'Pay rate',billRate:'Bill rate',salary:'Salary',flatFee:'Flat fee',
+  description:'Job description',startDate:'Start date'};
+
+/* The live constants are the same array objects the views already reference, so they are
+   mutated in place rather than reassigned. */
+function syncConfig(){
+  var p=(DB.config&&DB.config.picklists)||defaultConfig().picklists;
+  function put(arr,vals){arr.length=0;vals.forEach(function(v){arr.push(v);});}
+  put(CD_STATUS,p.candidateStatus);
+  put(JO_STATUS,p.jobStatus);
+  put(PIPE_OUT,p.submissionClosed);
+  put(PL_STATUS,p.placementStatus);
+  put(CO_STATUS,p.companyStatus);
+  put(NOTE_ACTIONS,p.noteAction);
+  put(CD_SOURCES,p.candidateSource);
+  put(JO_TYPE,p.jobType);
+  put(EMP_TYPE,p.employmentType);
+  put(CATEGORIES,p.category);
+  /* the pipeline is a list of objects, so only relabel what is there */
+  PIPE.length=0;
+  var colours=['var(--p1)','var(--p2)','var(--p3)','var(--p4)','var(--p5)','var(--p6)'];
+  p.submissionStatus.forEach(function(k,i){
+    PIPE.push({k:k,c:colours[i]||'var(--p6)',help:''});
+  });
+  PIPE_K.length=0;
+  p.submissionStatus.forEach(function(k){PIPE_K.push(k);});
+}
+function isRequired(entity,fieldKey,fallback){
+  if(!entity)return !!fallback;
+  var list=DB.config&&DB.config.requiredFields&&DB.config.requiredFields[entity];
+  if(!list)return !!fallback;
+  return list.indexOf(fieldKey)>=0;
+}
+function visibleTabs(entity,items){
+  var order=DB.config&&DB.config.tabs&&DB.config.tabs[entity];
+  if(!order)return items;
+  var byKey={};
+  items.forEach(function(it){byKey[it.k]=it;});
+  var out=[];
+  order.forEach(function(k){if(byKey[k])out.push(byKey[k]);});
+  /* anything not mentioned in the configuration still renders, so a tab cannot go missing
+     just because the configuration is out of date */
+  items.forEach(function(it){if(order.indexOf(it.k)<0)out.push(it);});
+  return out;
+}
+
+/* ---------------------------------------------------------------- configuration screen */
+function vConfig(){
+  var cfg=DB.config||defaultConfig();
+  return '<div class="listbar"><span class="dot"></span><h2>Configuration</h2>'+
+    '<span class="sp"></span><div class="btnrow">'+
+    '<button class="btn ghost" data-act="cfg-reset">Reset to defaults</button></div></div>'+
+    '<div class="mpad">'+
+    '<p class="sub">Bullhorn holds all of this per tenant rather than fixed, so it lives here as '+
+      'data rather than in the code. Changes apply immediately and are saved with everything else.</p>'+
+
+    '<div class="sec"><h3>Picklists</h3>'+
+      '<div class="grid g2">'+Object.keys(PICK_LABEL).map(function(k){
+        var vals=cfg.picklists[k]||[];
+        return '<div class="card"><div class="card-h"><h4>'+esc(PICK_LABEL[k])+'</h4>'+
+          '<span class="sp"></span><span class="muted mono">'+vals.length+'</span>'+
+          '<button class="btn ghost sm" data-act="cfg-pick" data-id="'+k+'">Edit</button></div>'+
+          '<div class="card-b"><div style="display:flex;flex-wrap:wrap;gap:3px">'+
+          vals.map(function(v,i){
+            return '<span class="tag">'+(i+1)+'. '+esc(v)+'</span>';}).join('')+
+          '</div></div></div>';
+      }).join('')+'</div>'+
+      '<p class="muted" style="font-size:12px;margin:9px 0 0;max-width:78ch">Order matters: it is the '+
+      'order the values appear in every dropdown. Renaming a value does not rewrite records that '+
+      'already carry the old one, which is exactly the trap a real reconfiguration sets.</p></div>'+
+
+    '<div class="sec"><h3>Required fields</h3>'+
+      '<div class="grid g2">'+['candidate','jobOrder','company','contact'].map(function(en){
+        var all=({candidate:['name','status','owner','occupation','email','phone','source','category',
+            'location','skills','desiredRate','availability','employmentPref'],
+          jobOrder:['title','companyId','contactId','type','employmentType','category','openings',
+            'payRate','billRate','salary','flatFee','location','startDate','description'],
+          company:['name','category','status','owner'],
+          contact:['name','companyId','title','phone','email','owner']})[en];
+        var req=cfg.requiredFields[en]||[];
+        return '<div class="card"><div class="card-h"><h4>'+esc(
+            {candidate:'Candidate',jobOrder:'Job order',company:'Company',contact:'Contact'}[en])+
+          '</h4><span class="sp"></span><span class="muted mono">'+req.length+' required</span></div>'+
+          '<div class="card-b"><div style="display:flex;flex-direction:column;gap:5px">'+
+          all.map(function(f){
+            var on=req.indexOf(f)>=0;
+            return '<div style="display:flex;gap:8px;align-items:center">'+
+              '<span class="selbox'+(on?' on':'')+'" data-act="cfg-req" data-id="'+en+'" '+
+              'data-field="'+f+'" role="checkbox" tabindex="0" aria-checked="'+on+'">'+
+              (on?'\u2713':'')+'</span><span style="font-size:12.5px">'+
+              esc(FIELD_LABEL[f]||f)+'</span></div>';
+          }).join('')+'</div></div></div>';
+      }).join('')+'</div>'+
+      '<p class="muted" style="font-size:12px;margin:9px 0 0;max-width:78ch">A field that is not '+
+      'required still validates its own format, and still warns when left empty in permissive mode. '+
+      'Turning something off removes the block, not the guidance.</p></div>'+
+
+    '<div class="sec"><h3>Record tabs</h3>'+
+      '<div class="grid g2">'+['candidate','job'].map(function(en){
+        var order=cfg.tabs[en]||[];
+        return '<div class="card"><div class="card-h"><h4>'+
+          (en==='candidate'?'Candidate':'Job order')+' tabs</h4></div>'+
+          '<div class="card-b"><div style="display:flex;flex-direction:column;gap:4px">'+
+          order.map(function(k,i){
+            return '<div style="display:flex;gap:7px;align-items:center;font-size:12.5px">'+
+              '<span class="mono muted" style="width:16px">'+(i+1)+'</span>'+
+              '<span style="flex:1">'+esc(TAB_LABEL[k]||k)+'</span>'+
+              '<button class="btn ghost sm" data-act="cfg-tab-up" data-id="'+en+'" data-field="'+k+
+                '"'+(i===0?' disabled':'')+' aria-label="Move up">\u2191</button>'+
+              '<button class="btn ghost sm" data-act="cfg-tab-dn" data-id="'+en+'" data-field="'+k+
+                '"'+(i===order.length-1?' disabled':'')+' aria-label="Move down">\u2193</button>'+
+              '</div>';
+          }).join('')+'</div>'+
+          '<p class="muted" style="font-size:11.5px;margin:10px 0 0">Overview, Notes, Files and Edit '+
+          'cannot be removed, matching the documented baseline. Order is yours.</p>'+
+          '</div></div>';
+      }).join('')+'</div></div>'+
+    '</div>';
+}
+
+A.cfgPicklist=function(key){
+  var cfg=DB.config;
+  openForm({title:'Edit '+(PICK_LABEL[key]||key),
+    intro:'One value per line, in the order they should appear in the dropdown. This is the same thing an administrator does in a real tenant, which is why nothing in this application treats these as fixed.',
+    fields:[{k:'vals',label:'Values',type:'textarea',required:true,
+      value:(cfg.picklists[key]||[]).join('\n'),
+      hint:'Blank lines are ignored. Removing a value that records already carry leaves those records showing it.'}],
+    submit:'Save picklist',
+    validate:function(v){
+      var e={};
+      var list=String(v.vals||'').split('\n').map(function(x){return x.trim();}).filter(Boolean);
+      if(list.length<2)e.vals='HARD STOP: a picklist needs at least two values.';
+      var seen={},dup=null;
+      list.forEach(function(x){if(seen[x])dup=x;seen[x]=1;});
+      if(dup)e.vals='HARD STOP: "'+dup+'" appears twice.';
+      if(key==='submissionStatus'&&list.length!==6)
+        e.vals='The pipeline board is built for six stages. Changing the count needs the board '+
+          'reworked as well, so this one is fixed at six here.';
+      return e;
+    },
+    onSubmit:function(v){
+      var list=String(v.vals).split('\n').map(function(x){return x.trim();}).filter(Boolean);
+      var before=(cfg.picklists[key]||[]).join(', ');
+      cfg.picklists[key]=list;
+      syncConfig();
+      log('Reconfigured picklist',(PICK_LABEL[key]||key)+': '+before+' \u2192 '+list.join(', '));
+      toast('Picklist updated','ok');
+      Store.save(true);render();
+    }});
+};
+A.cfgRequired=function(entity,field){
+  var list=DB.config.requiredFields[entity]||(DB.config.requiredFields[entity]=[]);
+  var LOCKED={candidate:['name'],jobOrder:['title','companyId'],company:['name'],contact:['name','companyId']};
+  if((LOCKED[entity]||[]).indexOf(field)>=0){
+    toast('That field anchors the record and cannot be made optional','no');return;
+  }
+  var i=list.indexOf(field);
+  if(i>=0)list.splice(i,1);else list.push(field);
+  log('Reconfigured required fields',entity+': '+(FIELD_LABEL[field]||field)+
+    (i>=0?' no longer required':' now required'));
+  Store.save(true);render();
+};
+A.cfgTabMove=function(entity,key,dir){
+  var order=DB.config.tabs[entity];
+  var i=order.indexOf(key);
+  if(i<0)return;
+  var j=i+dir;
+  if(j<0||j>=order.length)return;
+  order.splice(i,1);order.splice(j,0,key);
+  log('Reordered tabs',entity+': '+(TAB_LABEL[key]||key)+' to position '+(j+1));
+  Store.save(true);render();
+};
+A.cfgReset=function(){
+  openForm({title:'Reset the configuration',
+    intro:'Picklists, required fields and tab order go back to the values this sandbox ships with. Records are untouched.',
+    fields:[{k:'ack',label:'Reset the configuration',type:'check',required:true}],
+    submit:'Reset',
+    onSubmit:function(){
+      DB.config=defaultConfig();syncConfig();
+      log('Reset the configuration','');
+      toast('Configuration reset','ok');
+      Store.save(true);render();
+    }});
+};
+
 /* ---------------------------------------------------------------- coach */
 function renderCoach(){
   var st=scenarioState(activeScenario);
@@ -4734,11 +5313,22 @@ function renderCoach(){
 var VIEWS={dashboard:vDashboard,tasks:vTasks,appts:vAppts,leads:vLeads,lead:vLead,opps:vOpps,opp:vOpp,
   companies:vCompanies,company:vCompany,contacts:vContacts,contact:vContact,jobs:vJobs,job:vJob,
   candidates:vCandidates,candidate:vCandidate,pipeline:vPipeline,tearsheets:vTearsheets,tearsheet:vTearsheet,
-  search:vSearch,data:vData,
+  search:vSearch,data:vData,config:vConfig,
   placements:vPlacements,placement:vPlacement,approvals:vApprovals,notes:vNotes,reports:vReports,
   audit:vAudit,guide:vGuide};
 
 var PEEK={type:null,id:null,tab:'details'};
+A.stageOpen=function(status){
+  /* the documentation says clicking a reached workflow icon opens the relevant submission */
+  var pool=[];
+  if(route.view==='candidate')pool=candSubs(route.id);
+  else if(route.view==='job')pool=jobSubs(route.id);
+  var hit=pool.filter(function(s){
+    return (s.history||[]).some(function(h){return h.status===status;});
+  }).sort(function(a,b){return new Date(b.modified)-new Date(a.modified);})[0];
+  if(!hit){toast('No submission has reached '+status+' on this record','no');return;}
+  A.openSub(hit.id);
+};
 A.peek=function(type,id,tab){PEEK={type:type,id:id,tab:tab||'details'};renderPeek();};
 A.peekClose=function(){PEEK={type:null,id:null,tab:'details'};renderPeek();};
 function renderPeek(){
@@ -5010,10 +5600,22 @@ document.addEventListener('click',function(e){
       case 'sort': A.sort(t.getAttribute('data-list'),t.getAttribute('data-key')); return;
       case 'mass-update': A.massUpdate(); return;
       case 'mass-note': A.massNote(); return;
+      case 'file-actions': A.fileActions(t.getAttribute('data-cand'),id); return;
+      case 'parse-existing': A.parseExisting(t.getAttribute('data-cand'),id); return;
+      case 'cfg-pick': A.cfgPicklist(id); return;
+      case 'cfg-req': A.cfgRequired(id,t.getAttribute('data-field')); return;
+      case 'cfg-tab-up': A.cfgTabMove(id,t.getAttribute('data-field'),-1); return;
+      case 'cfg-tab-dn': A.cfgTabMove(id,t.getAttribute('data-field'),1); return;
+      case 'cfg-reset': A.cfgReset(); return;
+      case 'parser-toggle':
+        DB.parserOverwritePrevention=!DB.parserOverwritePrevention; Store.save(true);
+        toast('Overwrite prevention '+(DB.parserOverwritePrevention?'on':'off'),'');
+        render(); return;
       case 'peek': A.peek(t.getAttribute('data-type'),id); return;
       case 'peek-tab': PEEK.tab=t.getAttribute('data-tab'); renderPeek(); return;
       case 'peek-close': A.peekClose(); return;
       case 'peek-open': { var pt=t.getAttribute('data-type'); A.peekClose(); go(pt,id); return; }
+      case 'stage-open': A.stageOpen(id); return;
       case 'sel': A.toggleSel(id); return;
       case 'sel-none':
         if(route.view==='search')searchSel={};else candSel={};
