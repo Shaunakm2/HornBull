@@ -54,7 +54,8 @@ var EMP_BY_TYPE={'Contract':['W2','1099','Corp to Corp'],
 var CD_SOURCES=['LinkedIn','Indeed','Job Board','Company Website','Referral','Recruiter Outreach','Other'];
 var LEAD_STATUS=['New Lead','In Process','Converted','Archive'];
 var OPP_STATUS=['Open','Won','Lost'];
-var CATEGORIES=['Information Technology','Light Industrial','Admin & Clerical','Healthcare','Retail Operations'];
+var CATEGORIES=['Information Technology','Light Industrial','Admin & Clerical','Healthcare',
+  'Engineering','Finance & Accounting','Customer Support','Skilled Trades','Retail Operations'];
 var ONBOARD=[
   {k:'rtw', t:'Right to work verified',            h:'Identity and eligibility evidence on file before day one.'},
   {k:'contract',t:'Signed contract returned',      h:'Rates and end date must match the placement record.'},
@@ -80,6 +81,140 @@ var LAST=['Delaney','Chandran','Baptiste','Sol','Nkemelu','Kalu','Marchetti','Li
 'Pfeiffer','Quintero','Rasmussen','Sandoval','Thibault','Ustinov','Villareal','Whitmore','Yamamoto','Zielinski',
 'Abara','Bhatt','Corrigan','Dossantos','Ekstrom','Ferreira','Grzegorz','Haddad','Ivanova','Jimenez','Kaur',
 'Larsen','Moreau','Novak','Osei','Pereira','Rahimi','Serrano','Tanaka','Uddin','Voss','Wickham','Xu','Yilmaz','Zamora'];
+/* ---- expanded name pools: 3,000 unique names needs far more combinations than before ---- */
+var FIRST2=['Aaliyah','Abel','Abigail','Adam','Adrian','Agnes','Ahmed','Aidan','Aileen','Ajay',
+'Alan','Alba','Alec','Alexis','Alfred','Alice','Alina','Allan','Alma','Alonso','Althea','Alvin',
+'Amara','Ambrose','Amelia','Amir','Anders','Andrea','Angus','Anita','Anselm','Anthony','Antonia',
+'Apollo','Arabella','Archer','Arden','Ariel','Arjun','Arlene','Armand','Arnav','Aroha','Arthur',
+'Asha','Ashton','Astrid','Athena','Aubrey','Augustin','Aurora','Austin','Avery','Axel','Ayesha',
+'Bailey','Barbara','Bartek','Basil','Beatrix','Belinda','Benedict','Bennett','Bertie','Beverly',
+'Bianca','Blaise','Blake','Bonnie','Boyd','Bradley','Brandon','Brianna','Bridie','Brody','Bruno',
+'Bryony','Caleb','Callum','Cameron','Camila','Candace','Carla','Carlos','Carmen','Carter','Casey',
+'Cassia','Cecil','Celeste','Cesar','Chandra','Charlie','Chelsea','Chidi','Chloe','Christa','Cillian',
+'Clarissa','Claude','Clement','Clifford','Colette','Colin','Conrad','Constance','Cora','Cormac',
+'Cristina','Curtis','Cynthia','Dagmar','Dalia','Damian','Daniela','Danika','Dante','Daphne','Darius',
+'Darren','Davina','Dawn','Dean','Deborah','Declan','Delia','Denise','Derek','Desmond','Diana',
+'Diego','Dilan','Dimitri','Dolores','Dominic','Donna','Dorian','Douglas','Dulce','Duncan','Dylan',
+'Eamon','Ebony','Edgar','Edith','Eduardo','Efe','Eileen','Elaine','Eleanor','Elias','Elif','Elise',
+'Ellery','Elodie','Emil','Emiko','Emmett','Enid','Enzo','Ephraim','Eric','Erika','Ernest','Esther',
+'Ethan','Etienne','Eugenia','Eva','Evelyn','Ewan','Ezra','Fabiola','Faisal','Farrah','Federico',
+'Felicity','Fenton','Fergus','Fern','Fidel','Finlay','Fiona','Fletcher','Flora','Florian','Forrest',
+'Frances','Frank','Freddie','Fredrik','Gabriel','Gail','Galina','Gareth','Garrett','Gavin','Gemma',
+'Genevieve','George','Gerald','Gia','Gideon','Gillian','Giovanni','Gladys','Glenn','Gloria','Gordon',
+'Grace','Graham','Gregor','Griselda','Guillermo','Gwen','Hadley','Hafsa','Hamish','Hanna','Harold',
+'Harriet','Haruto','Hayden','Hazel','Heath','Hedda','Heidi','Helen','Henrik','Hester','Hilda',
+'Hollis','Honor','Hope','Horace','Hosea','Hugh','Hussein','Ian','Ibrahim','Ida','Idris','Ignacio',
+'Ilana','Imran','Ines','Ingrid','Iona','Irene','Iris','Irina','Isaac','Isabel','Ishaan','Isla',
+'Ismael','Ivan','Ivy','Jacinta','Jacob','Jade','Jagger','Jamal','Janet','Jarrah','Jasmine','Jasper',
+'Javier','Jaya','Jean','Jed','Jemima','Jenna','Jerome','Jessa','Jethro','Jian','Jillian','Joanna',
+'Joaquin','Jocelyn','Jodie','Joel','Johan','Jolene','Jonah','Jordan','Jorge','Josiah','Joyce',
+'Juan','Judith','Julia','Julius','June','Juniper','Justine','Kade','Kaia','Kalinda','Kamal','Kara',
+'Karim','Karla','Kasper','Kate','Kavya','Keegan','Keira','Kelvin','Kenji','Kenneth','Kerry','Keziah',
+'Khadija','Kian','Kiera','Kirsten','Klaus','Kofi','Kristin','Kurt','Kyra','Lachlan','Ladan','Laila',
+'Lambert','Lana','Lara','Lars','Latifa','Laurel','Lavinia','Lawrence','Leah','Leandra','Lenore',
+'Leon','Leopold','Lesley','Levi','Lewis','Lex','Lidia','Lilian','Lincoln','Linus','Lionel','Liora',
+'Lisbeth','Llewelyn','Logan','Lola','Lorcan','Lorna','Lottie','Louis','Lourdes','Lowell','Lucia',
+'Lucius','Ludo','Luisa','Luka','Luther','Lydia','Lyle','Mabel','Madison','Magdalena','Magnus',
+'Mahesh','Maisie','Malachi','Malia','Mamadou','Manon','Marcel','Margot','Marisa','Marlon','Marnie',
+'Marshall','Martha','Marvin','Mateus','Mathilde','Maud','Maurice','Maxine','Maya','Mei','Melina',
+'Mercedes','Meredith','Micah','Michelle','Mila','Miles','Millicent','Miranda','Miriam','Mitchell',
+'Moana','Mohsin','Molly','Monica','Montgomery','Morag','Morris','Moses','Muriel','Myles','Nadine',
+'Nala','Nancy','Naomi','Nasir','Natasha','Nathaniel','Neave','Nedra','Neil','Nell','Nelson','Nerea',
+'Nicholas','Nikhil','Nils','Nina','Noel','Nolan','Norah','Norman','Nuala','Nyla','Oakley','Obadiah',
+'Octavia','Odell','Ofelia','Olga','Oliver','Olwen','Omar','Ophelia','Orla','Orson','Oscar','Osman',
+'Otto','Owain','Paloma','Pamela','Pascal','Patience','Patrick','Paulette','Pearl','Pedro','Penny',
+'Percival','Perry','Petra','Phoebe','Pierce','Pilar','Piper','Portia','Prakash','Preston','Primrose',
+'Quinn','Rachel','Radha','Rafael','Raheem','Ramona','Randall','Raphael','Raquel','Rashida','Raul',
+'Raven','Reese','Regina','Reid','Remy','Rene','Reuben','Rhiannon','Ricardo','Rita','Roberta',
+'Robin','Rocco','Roderick','Roisin','Roland','Romilly','Ronan','Rosalind','Roscoe','Rowan','Roxana',
+'Ruby','Rudolph','Rufus','Ruth','Ryan','Sabine','Sadie','Saffron','Salim','Sally','Salvador',
+'Samira','Sandra','Santiago','Saoirse','Sarah','Saskia','Saul','Scarlett','Sean','Seraphina','Sergio',
+'Seth','Shannon','Sharon','Sheila','Shirley','Sidney','Sienna','Sigrid','Silas','Simone','Sinead',
+'Siobhan','Sloane','Sofia','Solomon','Sonia','Soren','Stanley','Stella','Stewart','Sunita','Susanna',
+'Sybil','Sylvia','Tabitha','Tadhg','Talia','Tamsin','Tanvi','Tara','Tariq','Tatiana','Teagan','Tess',
+'Thaddeus','Thea','Theodore','Thomas','Tia','Tilda','Timothy','Tobias','Tomas','Toni','Tristan',
+'Trudy','Tyler','Ulises','Una','Ursula','Uzoma','Valentina','Vance','Vanessa','Vaughn','Vera',
+'Verity','Vernon','Veronica','Vicente','Victor','Vidya','Vincent','Viola','Virgil','Vivienne',
+'Wallace','Walter','Wanda','Warren','Wendy','Wesley','Whitney','Wilbur','Wilhelmina','Willa',
+'Winifred','Wyatt','Xander','Ximena','Yara','Yasmin','Yohan','Yolanda','Yusra','Yvette','Zachary',
+'Zainab','Zane','Zara','Zelda','Zeynep','Zoe','Zola','Zubair'];
+
+var LAST2=['Abbott','Abraham','Acheson','Ackerman','Adeyemo','Aguilar','Ahluwalia','Ainsworth',
+'Akande','Alberts','Alcott','Alderman','Almeida','Alvarado','Amos','Andersson','Annan','Anthony',
+'Appleby','Aquino','Archibald','Ardern','Arias','Armitage','Arnett','Ashby','Ashworth','Atherton',
+'Attwood','Aubert','Auclair','Avila','Ayers','Babcock','Bagley','Bailey','Bakhtiari','Balcombe',
+'Baldwin','Ballard','Banda','Bannister','Barclay','Barlowe','Barnaby','Barrera','Barrington','Bartlett',
+'Baskerville','Bassey','Bateson','Baxendale','Beaumont','Beckford','Bellamy','Benedetti','Benitez',
+'Bennington','Berger','Bernard','Bertrand','Bhattacharya','Biggs','Billingham','Birchall','Bishara',
+'Blackwood','Blanchard','Blythe','Boateng','Bolton','Bonham','Booker','Borges','Boswell','Bouchard',
+'Bourne','Bowden','Bradshaw','Braithwaite','Brannigan','Brennan','Bridgewater','Brightwell','Brockman',
+'Bronson','Brookfield','Broughton','Bruckner','Buckley','Bullock','Bunting','Burdett','Burkhardt',
+'Burnside','Butterfield','Byrne','Cadogan','Cahill','Calderon','Callaghan','Calloway','Camberwell',
+'Campion','Cardoso','Carlisle','Carmichael','Carrington','Cartwright','Casey','Castellano','Cavanagh',
+'Cervantes','Chadwick','Chalmers','Chamberlain','Chandler','Chatterjee','Cheng','Chevalier','Chiba',
+'Chikwe','Chisholm','Chowdhury','Christensen','Clarkson','Claybourne','Cleary','Clifton','Coetzee',
+'Colborne','Coleridge','Collingwood','Comerford','Conteh','Copeland','Corbett','Cordova','Cornish',
+'Cortez','Costello','Coulter','Courtney','Cowan','Craddock','Cranfield','Crawley','Cresswell',
+'Crichton','Crompton','Crosbie','Culverhouse','Cumberland','Cunningham','Dabrowski','Dalgleish',
+'Dalrymple','Danforth','Darby','Dashwood','Davenport','Delacroix','Dembele','Denholm','Derrick',
+'Devereux','Dhillon','Dias','Dietrich','Dillard','Dinsmore','Doherty','Donnelly','Dorsett','Doughty',
+'Dowling','Draper','Driscoll','Duarte','Dufresne','Dunkley','Durand','Dvorak','Eastwood','Eberhardt',
+'Edmonds','Egbuna','Ehrlich','Eldridge','Ellington','Elmore','Emerson','Endicott','Engelbrecht',
+'Enriquez','Escobar','Esparza','Everard','Fairbairn','Falconer','Farnsworth','Faulkner','Fellowes',
+'Fenwick','Ferrari','Fielding','Finnegan','Fitzsimmons','Flanagan','Fleischer','Fletcher','Flynn',
+'Fontaine','Forsythe','Fortescue','Foster','Fournier','Frampton','Franklin','Fraser','Frobisher',
+'Fuentes','Gainsborough','Galloway','Gambhir','Garrity','Gascoigne','Gatling','Gauthier','Gearing',
+'Geldof','Gentry','Gerhardt','Ghosh','Gibbons','Gifford','Gillespie','Glenister','Godfrey','Goldsmith',
+'Gonsalves','Goodwin','Gorman','Grantham','Greaves','Greenhalgh','Gregson','Grimsby','Guerrero',
+'Gunderson','Gupta','Hackett','Haddon','Hagen','Halloran','Hamilton','Hanrahan','Harcourt','Hargrave',
+'Harkness','Harmon','Hartley','Haslam','Hathaway','Havelock','Hawkins','Hayward','Heathcote','Hedley',
+'Helmsley','Henshaw','Hepburn','Herrera','Hewitt','Hickman','Hidalgo','Higginbotham','Hillier',
+'Hinojosa','Hobbs','Hockley','Hodgkinson','Hollingworth','Holroyd','Honeycutt','Hopkirk','Horowitz',
+'Houghton','Howarth','Hoyland','Huang','Hubbard','Huddleston','Hulme','Humphrey','Hutchings','Ibarra',
+'Ilesanmi','Ingham','Ingleby','Irvine','Ishikawa','Iversen','Jablonski','Jacobsen','Jamieson',
+'Jarvis','Jefferies','Jennings','Jessop','Jimenez','Johansson','Jolliffe','Josephs','Kaczmarek',
+'Kalinowski','Kamau','Kapoor','Karlsson','Kavanagh','Keaton','Keegan','Kellerman','Kemble','Kendrick',
+'Kenworthy','Kerrigan','Kessler','Khatri','Kilbride','Kinsella','Kirkbride','Kitchener','Klimenko',
+'Knowles','Kobayashi','Koenig','Kolawole','Kowalczyk','Kramer','Krishnan','Kuznetsov','Lachlan',
+'Ladbroke','Lafferty','Laird','Lambourne','Lancaster','Langford','Lanigan','Larkin','Latimer',
+'Lavelle','Lawrenson','Leadbetter','Leblanc','Ledger','Leighton','Lennox','Leonard','Lestrange',
+'Lightfoot','Lindstrom','Linley','Littlewood','Livingstone','Llewellyn','Lockhart','Loftus','Longstaff',
+'Lonsdale','Lovegrove','Lowry','Lucero','Ludlow','Lyndhurst','Macaulay','Macdonald','Mackintosh',
+'Maddox','Magnusson','Mahmood','Mainwaring','Makinde','Malinowski','Mallory','Mandel','Manningham',
+'Marchetti','Marlborough','Marsden','Martinelli','Mascarenhas','Mason','Masterson','Mathieson',
+'Maulding','Maxwell','Mbeki','McAlister','McBride','McCafferty','McCourt','McDermott','McEwan',
+'McGarrity','McGovern','McKellar','McLoughlin','McNamara','Meadows','Medeiros','Mehta','Melbourne',
+'Mendelsohn','Merriman','Metcalfe','Middleton','Milburn','Millington','Minchin','Mirza','Mitford',
+'Mohammed','Molyneux','Monaghan','Montague','Moorcroft','Morales','Moriarty','Mortimer','Mowbray',
+'Mubarak','Mulholland','Munroe','Murchison','Nakashima','Napier','Narayanan','Naylor','Nesbitt',
+'Neumann','Newcombe','Nicolson','Nightingale','Nkosi','Norrington','Northcote','Nunes','Nwachukwu',
+'Oakeshott','Obiora','Ochoa','Odhiambo','Ogilvy','Okafor','Oldfield','Olivares','Ollivander','Olsen',
+'Onwuka','Oppenheim','Orlov','Ormsby','Ortega','Osbourne','Oswald','Ottaway','Overton','Oyelowo',
+'Padilla','Paget','Palmerston','Pankhurst','Papadopoulos','Pardoe','Parkinson','Pashley','Patel',
+'Paterson','Pattinson','Pemberton','Pendleton','Penhaligon','Peralta','Perrin','Pettigrew','Pfister',
+'Philpott','Pickering','Pilkington','Pinto','Playfair','Plunkett','Ponsonby','Popescu','Porras',
+'Postlethwaite','Poulson','Prentice','Prescott','Prideaux','Pritchard','Puglisi','Purcell','Quigley',
+'Quintanilla','Radcliffe','Rahman','Ramsbottom','Randolph','Rankine','Rasmussen','Rathbone','Ravenscroft',
+'Rawlinson','Redmayne','Reinhardt','Renshaw','Restrepo','Reynolds','Rhodes','Ricci','Ridgeway',
+'Rigsby','Rivers','Robeson','Rochester','Roddick','Rodrigues','Rollins','Romano','Rookwood','Roscoe',
+'Rosenthal','Rothwell','Rousseau','Rowntree','Ruddock','Rushforth','Rutherford','Ryder','Sablewski',
+'Sackville','Saldana','Salgado','Sampson','Sandhu','Sarkissian','Satterfield','Saunders','Savarese',
+'Scarborough','Schofield','Schreiber','Scrivener','Seabrook','Sedgwick','Selby','Serrato','Shackleton',
+'Sharpe','Shelby','Sheridan','Sherwood','Shipley','Shrestha','Sidhu','Silvestre','Simmonds','Sinclair',
+'Skinner','Slattery','Smollett','Snowden','Solberg','Somerville','Sorensen','Southgate','Spellman',
+'Spencer','Squire','Stack','Stanhope','Stapleton','Stavros','Steadman','Stenhouse','Stirling',
+'Stockwell','Stoddard','Strachan','Stringer','Sturgess','Suarez','Summerfield','Sutcliffe','Swaminathan',
+'Swinburne','Sykes','Szabo','Tait','Talbot','Tanaka','Tarrant','Tavares','Teixeira','Templeton',
+'Thackeray','Thornbury','Thurgood','Tichborne','Tierney','Tillotson','Tomlinson','Torrance','Toussaint',
+'Townshend','Traynor','Tremaine','Trevelyan','Trundle','Tsvetkov','Tuckwell','Turnbull','Tyrrell',
+'Underhill','Upton','Urquhart','Vaillancourt','Valdez','Vanburen','Vandenberg','Varga','Vasquez',
+'Vaughan','Venables','Verhoeven','Vickery','Villalobos','Vincenzi','Voight','Wadsworth','Wainwright',
+'Wakefield','Waldron','Walcott','Wallington','Walmsley','Warburton','Wardlaw','Warrington','Waterhouse',
+'Watanabe','Waverley','Weatherby','Wedgwood','Welbeck','Wellesley','Wentworth','Westbrook','Wetherall',
+'Whately','Wheatley','Whitcombe','Whittaker','Wickersham','Widdowson','Wilberforce','Wilkerson',
+'Willoughby','Winstanley','Winterbourne','Witherspoon','Wollaston','Woodhouse','Worthington','Wrenfield',
+'Wyndham','Yamashita','Yeardley','Yildirim','Youngblood','Zaragoza','Zavala','Zielinski','Zimmerman'];
+
 var CV_LOCS=['Aurora','Halcyon','Pemberton','Corvus','Fairhaven','Linden Park','Westgate','Rockvale','Marlowe','Ashford'];
 var CV_SOURCES=['LinkedIn','Indeed','Job Board','Company Website','Referral','Recruiter Outreach','Other'];
 var CV_AVAIL=['Immediate','1 week','2 weeks','4 weeks','Notice period'];
@@ -88,7 +223,7 @@ var CV_EDU=['High school diploma','Associate degree','Bachelor of Science','Bach
 
 var VERTICALS={
 'Information Technology':{
-  n:45,rate:[45,95],
+  n:620,rate:[45,95],
   roles:['Software Engineer','Java Developer','.NET Developer','Front End Developer','DevOps Engineer',
     'Data Engineer','QA Automation Analyst','Systems Administrator','Network Engineer','Help Desk Technician',
     'Cloud Architect','Business Analyst','Cyber Security Analyst','Database Administrator','Scrum Master'],
@@ -107,7 +242,7 @@ var VERTICALS={
     'Reduced mean time to recovery by {p} per cent through improved monitoring and alerting',
     'Designed the data model and query layer for a reporting platform used by {t} internal teams']},
 'Light Industrial':{
-  n:40,rate:[17,32],
+  n:540,rate:[17,32],
   roles:['Warehouse Associate','Forklift Operator','Machine Operator','Assembler','Production Supervisor',
     'Shipping and Receiving Clerk','Quality Inspector','Maintenance Technician','Picker Packer','Material Handler',
     'CNC Operator','Welder','Warehouse Team Lead','Inventory Control Clerk'],
@@ -126,7 +261,7 @@ var VERTICALS={
     'Carried out cycle counts and reconciled variances against {s4} records',
     'Completed preventive maintenance schedules on {t} production lines']},
 'Admin & Clerical':{
-  n:32,rate:[19,34],
+  n:400,rate:[19,34],
   roles:['Administrative Assistant','Executive Assistant','Data Entry Clerk','Receptionist','Office Manager',
     'Accounts Payable Clerk','Payroll Administrator','Customer Service Representative','Scheduling Coordinator',
     'Legal Secretary','HR Assistant','Bookkeeper','Front Desk Coordinator'],
@@ -145,8 +280,114 @@ var VERTICALS={
     'Handled a {n}-call daily switchboard and front desk for a {t}-person office',
     'Ran fortnightly payroll for {n} employees using {s3}',
     'Reorganised the filing and {s4} system ahead of an external audit']},
+'Engineering':{
+  n:380,rate:[38,88],
+  roles:['Mechanical Engineer','Electrical Engineer','Manufacturing Engineer','Process Engineer',
+    'Quality Engineer','Design Engineer','Project Engineer','Controls Engineer','Civil Engineer',
+    'Structural Engineer','Maintenance Engineer','Industrial Engineer','Reliability Engineer',
+    'Validation Engineer','Field Service Engineer','CAD Technician'],
+  skills:['AutoCAD','SolidWorks','CATIA','Revit','Creo','GD&T','FEA','ANSYS','MATLAB','PLC',
+    'Allen Bradley','Siemens S7','SCADA','HMI','Six Sigma','Root Cause Analysis','FMEA','APQP',
+    'PPAP','ISO 9001','ISO 13485','Lean Manufacturing','Kaizen','Tolerance Stack-up','Injection Moulding',
+    'CNC Programming','Hydraulics','Pneumatics','Thermodynamics','Finite Element Analysis',
+    'Project Scheduling','Primavera P6','Commissioning','Validation Protocols','IQ OQ PQ'],
+  certs:['Professional Engineer (PE)','EIT','Six Sigma Black Belt','Six Sigma Green Belt','PMP',
+    'Certified Quality Engineer','CSWP SolidWorks','OSHA 30','LEED Green Associate','CMRP'],
+  firms:['Ironbark Manufacturing','Halcyon Precision','Corvis Aerospace','Redstone Fabrication',
+    'Meridian Controls','Vale Metals','Northgate Engineering','Trellis Components',
+    'Copperfield Plastics','Summit Industrial Systems'],
+  bullets:['Designed and released {n} part drawings in {s1} to {s2} standards',
+    'Led the {s3} programme across {t} production cells, cutting scrap by {p} per cent',
+    'Commissioned {t} automated lines using {s4} and brought them to full rate',
+    'Ran root cause investigations that lifted first-pass yield to {p} per cent',
+    'Owned validation documentation for {t} product families through audit',
+    'Reduced changeover time by {p} per cent on a {n}-station assembly line']},
+'Finance & Accounting':{
+  n:220,rate:[28,72],
+  roles:['Staff Accountant','Senior Accountant','Accounts Payable Specialist','Accounts Receivable Clerk',
+    'Payroll Manager','Financial Analyst','Credit Controller','Bookkeeper','Cost Accountant',
+    'Billing Specialist','Collections Specialist','Assistant Controller','Internal Auditor',
+    'Tax Associate'],
+  skills:['General Ledger','Month End Close','Journal Entries','Bank Reconciliation','Accruals',
+    'Accounts Payable','Accounts Receivable','Fixed Assets','Variance Analysis','Forecasting',
+    'Budgeting','SAP FICO','Oracle Financials','NetSuite','QuickBooks','Sage','Xero','Excel Modelling',
+    'Pivot Tables','VLOOKUP','Power BI','SOX Compliance','GAAP','IFRS','Multi-currency',
+    'Intercompany','Invoice Processing','Credit Control','Payroll Processing','ADP','Concur',
+    'Three-way Match','Cash Application'],
+  certs:['CPA','ACCA','CIMA','CMA','Certified Payroll Professional','CIA','QuickBooks ProAdvisor',
+    'Certified Bookkeeper','SAP FICO Certified'],
+  firms:['Stonebridge Accounting','Fairlight Media','Cornerstone Insurance','Berkeley Property Group',
+    'Halden Logistics','Vertex Payments','Marlowe Council','Anchor Freight','Cascade Distribution',
+    'Lumen Analytics'],
+  bullets:['Closed the month in {t} days, down from {n}, across {t} legal entities',
+    'Processed {n} invoices a month in {s1} at a {p} per cent first-pass match rate',
+    'Rebuilt the {s2} reconciliation, clearing a backlog of {n} open items',
+    'Owned {s3} reporting for a {n}m turnover business unit',
+    'Reduced debtor days from {n} to {t} through disciplined credit control',
+    'Prepared audit schedules and cleared {t} audit queries with no adjustments']},
+'Customer Support':{
+  n:180,rate:[17,34],
+  roles:['Customer Service Representative','Customer Support Specialist','Call Centre Agent',
+    'Technical Support Analyst','Service Desk Analyst','Client Services Coordinator',
+    'Inbound Sales Agent','Complaints Handler','Team Leader Customer Service',
+    'Bilingual Support Agent'],
+  skills:['Inbound Calls','Outbound Calls','Zendesk','Freshdesk','Salesforce Service Cloud',
+    'ServiceNow','Live Chat','Email Support','Ticket Triage','SLA Management','De-escalation',
+    'Complaint Resolution','Order Processing','Returns Processing','CRM Data Entry','Upselling',
+    'First Call Resolution','Quality Monitoring','Call Scripting','Knowledge Base Maintenance',
+    'Spanish','French','Mandarin','Shift Work','Rostering'],
+  certs:['ITIL Foundation','HDI Support Center Analyst','Customer Service Excellence',
+    'Zendesk Support Administrator','First Aid'],
+  firms:['Pemberton Retail','Vertex Payments','Fairlight Media','Cornerstone Insurance',
+    'Linden Park Urgent Care','Anchor Freight','Solstice Labs','Ravenstone IT',
+    'Cascade Distribution','Summit Packaging'],
+  bullets:['Handled {n} contacts a week across phone, chat and email at {p} per cent CSAT',
+    'Resolved {p} per cent of tickets at first contact using {s1}',
+    'Held average handling time under {t} minutes on a {n}-call daily queue',
+    'Took escalations for a team of {t} and coached on {s2}',
+    'Maintained {n} knowledge base articles used across the support floor',
+    'Supported customers in two languages on a rotating {t}-shift pattern']},
+'Skilled Trades':{
+  n:100,rate:[24,58],
+  roles:['Electrician','Industrial Electrician','Plumber','HVAC Technician','Millwright','Pipefitter',
+    'Diesel Mechanic','Maintenance Technician','Boilermaker','Machinist','Instrumentation Technician'],
+  skills:['Conduit Bending','Motor Controls','Three Phase','Panel Wiring','Troubleshooting',
+    'Preventive Maintenance','Hydraulics','Pneumatics','Welding','MIG Welding','TIG Welding',
+    'Stick Welding','Pipe Threading','Brazing','Refrigeration','EPA 608','Blueprint Reading',
+    'Schematics','Lockout Tagout','Confined Space','Rigging','Precision Alignment','Vibration Analysis',
+    'CNC Set-up','Lathe','Mill','Calibration'],
+  certs:['Journeyman Electrician','Master Electrician','EPA 608 Universal','OSHA 30','NFPA 70E',
+    'Certified Welder AWS D1.1','Forklift Certification','Confined Space Trained','Rigging Certified'],
+  firms:['Vale Metals','Redstone Fabrication','Ironbark Manufacturing','Ardent Field Services',
+    'Summit Industrial Systems','Copperfield Plastics','Halden Logistics','Meridian Controls',
+    'Cascade Distribution','Trellis Components'],
+  bullets:['Maintained {t} production lines with {p} per cent uptime on a {n}-hour week',
+    'Wired and commissioned {t} control panels to {s1} standards',
+    'Diagnosed and repaired {n} breakdown callouts with no repeat faults',
+    'Carried out planned maintenance on {t} assets using {s2}',
+    'Fabricated and installed pipework across {t} plant areas',
+    'Held a clean safety record across {n} months of {s3} work']},
+'Retail Operations':{
+  n:60,rate:[16,32],
+  roles:['Store Supervisor','Assistant Store Manager','Store Manager','Merchandiser',
+    'Stock Controller','Visual Merchandiser','Department Lead','Cashier Supervisor',
+    'Loss Prevention Officer'],
+  skills:['Rostering','Shrinkage Control','Visual Merchandising','Planogram','Stock Replenishment',
+    'Cash Handling','Till Reconciliation','Customer Service','Team Leading','Sales Targets',
+    'Stocktaking','EPOS','Loss Prevention','Health and Safety','Opening and Closing',
+    'Recruitment','Onboarding','KPI Reporting'],
+  certs:['First Aid','Food Safety Level 2','Health and Safety Level 2','Personal Licence',
+    'Loss Prevention Certified'],
+  firms:['Pemberton Retail','Fairlight Media','Cornerstone Insurance','Summit Packaging',
+    'Berkeley Property Group','Anchor Freight'],
+  bullets:['Ran a {n} square foot store with a team of {t} and hit {p} per cent of plan',
+    'Cut shrinkage to {p} per cent through tighter {s1} discipline',
+    'Built weekly rosters for {t} staff across a seven day trading pattern',
+    'Delivered {n} planogram resets on time across {t} departments',
+    'Reconciled tills daily with a {p} per cent accuracy record',
+    'Recruited and onboarded {t} seasonal staff for peak trading']},
 'Healthcare':{
-  n:33,rate:[24,72],
+  n:500,rate:[24,72],
   roles:['Registered Nurse','Licensed Practical Nurse','Certified Nursing Assistant','Medical Assistant',
     'Phlebotomist','Medical Records Clerk','Radiologic Technologist','Respiratory Therapist',
     'Pharmacy Technician','Medical Biller','Patient Access Representative','Surgical Technologist',
@@ -215,15 +456,16 @@ function buildCV(r,name,role,vert,loc,skills,certs,years,email,phone){
   return L.join('\n');
 }
 function generatePool(db){
-  var r=rng(20260907),made=0;
+  var r=rng(20260907),made=0,seenNames={};
+  db.candidates.forEach(function(c){seenNames[c.name]=1;});
   Object.keys(VERTICALS).forEach(function(vert){
     var V=VERTICALS[vert];
     for(var i=0;i<V.n;i++){
-      var name=pick(r,FIRST)+' '+pick(r,LAST);
+      var name=pick(r,FIRST2)+' '+pick(r,LAST2);
       var guard=0;
-      while(db.candidates.some(function(c){return c.name===name;})&&guard++<40)
-        name=pick(r,FIRST)+' '+pick(r,LAST);
-      if(db.candidates.some(function(c){return c.name===name;}))continue;
+      while(seenNames[name]&&guard++<60)name=pick(r,FIRST2)+' '+pick(r,LAST2);
+      if(seenNames[name])continue;
+      seenNames[name]=1;
       var role=pick(r,V.roles);
       var loc=pick(r,CV_LOCS);
       var skills=pickN(r,V.skills,5+Math.floor(r()*4));
@@ -231,7 +473,8 @@ function generatePool(db){
       var years=1+Math.floor(r()*22);
       var rate=V.rate[0]+Math.floor(r()*(V.rate[1]-V.rate[0]));
       var email=name.toLowerCase().replace(/[^a-z]+/g,'.')+'@mail.example';
-      var phone='+1 555 '+String(1000+Math.floor(r()*8999));
+      var phone='+1 '+String(201+Math.floor(r()*698))+' '+
+        String(1000000+Math.floor(r()*8999999));
       var st=r();
       var status=st<0.06?'Do Not Call':(st<0.12?'Archive':(st<0.30?'New Lead':'Active'));
       var c={id:uid('CD'),name:name,occupation:role,status:status,category:vert,location:loc,
@@ -416,17 +659,80 @@ var Store=(function(){
       return null;
     });
   };
+  /* Resume text is the bulk of the dataset, so it is stored per candidate rather than
+     inside the state record. Only changed resumes are rewritten. */
+  var cvDirty={},cvAll=false;
+  api.markCV=function(id){cvDirty[id]=true;};
+  api.markAllCV=function(){cvAll=true;};
+  function stripped(){
+    var out={},k;
+    for(k in DB){
+      if(k==='candidates')continue;
+      out[k]=DB[k];
+    }
+    out.candidates=DB.candidates.map(function(c){
+      var copy={},f;
+      for(f in c){
+        if(f==='cv')continue;
+        if(f==='files'){
+          copy.files=(c.files||[]).map(function(x){
+            var y={},g;for(g in x){if(g!=='text')y[g]=x[g];}return y;});
+          continue;
+        }
+        copy[f]=c[f];
+      }
+      return copy;
+    });
+    return out;
+  }
+  function writeCVs(){
+    if(!api.available)return Promise.resolve();
+    var ids=cvAll?DB.candidates.map(function(c){return c.id;}):Object.keys(cvDirty);
+    if(!ids.length)return Promise.resolve();
+    cvAll=false;cvDirty={};
+    return tx('files','readwrite',function(st){
+      ids.forEach(function(id){
+        var c=byId(DB.candidates,id);
+        if(!c)return;
+        if(c.cv)st.put(c.cv,'cv:'+id);else st.delete('cv:'+id);
+      });
+    }).catch(function(){});
+  }
   api.save=function(force){
     if(!api.available||!api.ready)return;
     if(timer)clearTimeout(timer);
     var run=function(){
       timer=null;
-      var payload={savedAt:new Date().toISOString(),version:VER,data:DB,seq:SEQ};
+      var payload={savedAt:new Date().toISOString(),version:VER,data:stripped(),seq:SEQ};
       tx('state','readwrite',function(s){return s.put(payload,'current');})
-        .then(function(){api.lastSaved=payload.savedAt;})
+        .then(function(){api.lastSaved=payload.savedAt;return writeCVs();})
         .catch(function(e){api.available=false;api.reason='Save failed: '+(e.message||e);});
     };
-    if(force)run();else timer=setTimeout(run,700);
+    if(force)run();else timer=setTimeout(run,900);
+  };
+  api.hydrateCVs=function(){
+    if(!api.available)return Promise.resolve(0);
+    return new Promise(function(res){
+      var n=0;
+      try{
+        var t=idb.transaction('files','readonly'),st=t.objectStore('files');
+        var rq=st.openCursor();
+        rq.onsuccess=function(){
+          var cur=rq.result;
+          if(!cur){res(n);return;}
+          var k=String(cur.key||'');
+          if(k.indexOf('cv:')===0){
+            var c=byId(DB.candidates,k.slice(3));
+            if(c&&typeof cur.value==='string'){
+              c.cv=cur.value;n++;
+              (c.files||[]).forEach(function(f){if(f.isResume&&!f.text)f.text=cur.value;});
+            }
+          }
+          cur.continue();
+        };
+        rq.onerror=function(){res(n);};
+      }catch(e){res(n);}
+    });
   };
   api.load=function(){
     if(!api.available)return Promise.resolve(null);
@@ -2354,6 +2660,7 @@ A.uploadCV=function(id){
     c.cv=txt;c.cvName=pending.name||(c.name.replace(/[^A-Za-z]+/g,'_')+'_CV.txt');
     c.cvAt=iso(TODAY);
     addFile(c,c.cvName,'Resume',true,txt);
+    Store.markCV(c.id);
     log(had?'Replaced the resume file':'Attached a resume file',
       c.name+' · '+c.cvName+' · '+txt.split(/\s+/).filter(Boolean).length+' words');
     root.innerHTML='';
@@ -2630,8 +2937,13 @@ function vData(){
     ['Submissions',DB.subs.length],['Appointments',DB.appts.length],['Placements',DB.placements.length],
     ['Time entries',DB.times.length],['Notes',DB.notes.length],['Tasks',DB.tasks.length],
     ['Tearsheets',DB.tearsheets.length],['Saved searches',DB.savedSearches.length]];
-  var size=0;
-  try{size=JSON.stringify(DB).length;}catch(e){size=0;}
+  var cvBytes=0,recs=0;
+  DB.candidates.forEach(function(c){
+    cvBytes+=(c.cv||'').length;
+    (c.files||[]).forEach(function(f){cvBytes+=(f.text||'').length;});
+  });
+  counts.forEach(function(c){recs+=c[1];});
+  var size=cvBytes+recs*260;
   return '<div class="h"><h2>Database</h2><span class="sp"></span><div class="btnrow">'+
     '<button class="btn ghost" data-act="db-export">Export</button>'+
     '<button class="btn ghost" data-act="db-import">Import</button>'+
@@ -2642,7 +2954,8 @@ function vData(){
       met('Storage',Store.available?'Active':'Memory only',Store.available?'IndexedDB in this browser':'nothing will survive a refresh',Store.available?'up':'dn')+
       met('Last saved',Store.lastSaved?fmtDT(Store.lastSaved):'—','saves automatically after each change')+
       met('Records',counts.reduce(function(a,c){return a+c[1];},0),'across '+counts.length+' record types')+
-      met('Payload',Math.round(size/1024)+' KB','serialised size of the whole dataset')+
+      met('Payload',(size/1048576).toFixed(1)+' MB','approximate; '+
+        Math.round(cvBytes/1048576*10)/10+' MB of that is resume text')+
     '</div>'+
 
     (Store.available
@@ -2667,10 +2980,17 @@ function vData(){
     '</div>';
 }
 A.dbExport=function(){
-  var payload=JSON.stringify({savedAt:new Date().toISOString(),version:1,data:DB,seq:SEQ},null,1);
+  /* A snapshot has to be self-contained, so resumes go back in here even though they are
+     stored separately. It is large by nature: warn rather than surprise. */
+  var payload=JSON.stringify({savedAt:new Date().toISOString(),version:1,data:DB,seq:SEQ});
   var root=document.getElementById('modal-root');
   root.innerHTML='<div class="scrim" data-scrim><div class="modal wide" role="dialog" aria-modal="true">'+
-    '<div class="modal-h"><h4>Export data</h4><p>A complete snapshot, '+Math.round(payload.length/1024)+' KB. Copy it, or download it as a file.</p></div>'+
+    '<div class="modal-h"><h4>Export data</h4><p>A complete snapshot including every resume, '+
+      (payload.length/1048576).toFixed(1)+' MB.</p></div>'+
+    (payload.length>2097152?'<div style="padding:13px 16px 0"><div class="callout warn">'+
+      '<b>This is a large snapshot.</b> Download it rather than copying: a few megabytes of text in '+
+      'the clipboard is slow and easy to truncate. The size is almost all resume text, which is what '+
+      'makes the pool worth practising against.</div></div>':'')+
     '<div class="modal-b"><textarea id="db-json" readonly style="width:100%;min-height:280px;'+
       'font-family:var(--mono);font-size:11px;line-height:1.5;border:1px solid var(--line);border-radius:5px;padding:10px">'+
       esc(payload)+'</textarea></div>'+
@@ -5121,6 +5441,7 @@ A.parseExisting=function(candId,fileId){
       return;
     }
     c.edited=new Date().toISOString();
+    Store.markCV(c.id);
     log('Parsed resume as existing',c.name+' \u00b7 updated: '+applied.join(', '));
     notify('Record updated from a resume: '+c.name,'candidate',c.id);
     root.innerHTML='';
@@ -5193,6 +5514,7 @@ function defaultConfig(){
       jobType:['Contract','Contract To Hire','Direct Hire'],
       employmentType:['W2','1099','Corp to Corp','Permanent'],
       category:['Information Technology','Light Industrial','Admin & Clerical','Healthcare',
+        'Engineering','Finance & Accounting','Customer Support','Skilled Trades',
         'Retail Operations']
     },
     requiredFields:{
@@ -5949,7 +6271,7 @@ document.addEventListener('click',function(e){
           fields:[{k:'ack',label:'Reset the sandbox to its starting state',type:'check',required:true}],
           submit:'Reset',
           onSubmit:function(){
-            DB=seed();SEEN={reports:false};openTabs=[];
+            DB=seed();SEEN={reports:false};openTabs=[];Store.markAllCV();
             searchQ='';searchRun=null;searchSel={};
             candPage=1;candFilter='';candCat='All';candStatus='All';candCV='All';
             Store.save(true);go('dashboard');toast('Sandbox reset','ok');}});
@@ -6013,6 +6335,9 @@ Store.init().then(function(rec){
      'times','notes','tasks','tearsheets','savedSearches','audit'].forEach(function(k){
       if(!DB[k])DB[k]=[];});
     Store.lastSaved=rec.savedAt||null;
+    Store.hydrateCVs().then(function(n){
+      if(n)render();
+    });
     if(typeof DB.uiRail==='boolean')railMini=DB.uiRail;
     if(typeof DB.uiCoach==='boolean')coachMini=DB.uiCoach;
     render();
@@ -6020,7 +6345,7 @@ Store.init().then(function(rec){
     if(!DB.tourSeen)tourWelcome();
   } else {
     render();
-    if(Store.available)Store.save(true);
+    if(Store.available){Store.markAllCV();Store.save(true);}
     if(!DB.tourSeen)tourWelcome();
   }
 }).catch(function(){render();if(!DB.tourSeen)tourWelcome();});
