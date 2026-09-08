@@ -42,11 +42,16 @@ var pColor=function(k){
 };
 var JO_STATUS=['Accepting Candidates','Covered','Filled','On Hold','Closed','Cancelled'];
 var JO_TYPE=['Contract','Contract To Hire','Direct Hire'];
-var CD_STATUS=['New Lead','Active','Submitted','Placed','Do Not Call','Archive'];
-var CO_STATUS=['Prospect','Active Account','Archive'];
-var PL_STATUS=['Pending Approval','Approved','Completed','Terminated'];
+var CD_STATUS=['New Lead','Active','Available','Submitted','Placed','Do Not Call','Archive'];
+var CO_STATUS=['Prospect','Active Client','Inactive','Former Client','Do Not Contact'];
+var PL_STATUS=['Pending Approval','Approved','Rejected','Completed','Terminated'];
 var EMP_TYPE=['W2','1099','Corp to Corp','Permanent'];
-var NOTE_ACTIONS=['Call','Email','Meeting','Interview','Reference Check','Other'];
+var NOTE_ACTIONS=['Prescreen','Outbound Call','Inbound Call','Left Message','Email','Meeting',
+  'Interview','Reference Check','Client Visit','Internal Memo','Other'];
+/* Employment type depends on the job order type: only a direct hire is permanent. */
+var EMP_BY_TYPE={'Contract':['W2','1099','Corp to Corp'],
+  'Contract To Hire':['W2','1099','Corp to Corp'],'Direct Hire':['Permanent']};
+var CD_SOURCES=['LinkedIn','Indeed','Job Board','Company Website','Referral','Recruiter Outreach','Other'];
 var LEAD_STATUS=['New Lead','In Process','Converted','Archive'];
 var OPP_STATUS=['Open','Won','Lost'];
 var CATEGORIES=['Information Technology','Light Industrial','Admin & Clerical','Healthcare','Retail Operations'];
@@ -76,7 +81,7 @@ var LAST=['Delaney','Chandran','Baptiste','Sol','Nkemelu','Kalu','Marchetti','Li
 'Abara','Bhatt','Corrigan','Dossantos','Ekstrom','Ferreira','Grzegorz','Haddad','Ivanova','Jimenez','Kaur',
 'Larsen','Moreau','Novak','Osei','Pereira','Rahimi','Serrano','Tanaka','Uddin','Voss','Wickham','Xu','Yilmaz','Zamora'];
 var CV_LOCS=['Aurora','Halcyon','Pemberton','Corvus','Fairhaven','Linden Park','Westgate','Rockvale','Marlowe','Ashford'];
-var CV_SOURCES=['Referral','Job Board','Careers site','Database','Social','Walk-in','Rehire'];
+var CV_SOURCES=['LinkedIn','Indeed','Job Board','Company Website','Referral','Recruiter Outreach','Other'];
 var CV_AVAIL=['Immediate','1 week','2 weeks','4 weeks','Notice period'];
 var CV_EDU=['High school diploma','Associate degree','Bachelor of Science','Bachelor of Arts',
 'Vocational diploma','Trade apprenticeship','Postgraduate diploma'];
@@ -446,7 +451,7 @@ function seed(){
   SEQ={};
   var db={leads:[],opps:[],companies:[],contacts:[],candidates:[],jobs:[],subs:[],
     appts:[],placements:[],times:[],notes:[],tasks:[],tearsheets:[],savedSearches:[],
-    notifs:[],training:true,audit:[],quiz:null,assess:null,tourSeen:false};
+    notifs:[],training:true,permissive:true,blockTimeOnOnboarding:true,audit:[],quiz:null,assess:null,tourSeen:false};
 
   function co(name,cat,owner,status,since){
     var c={id:uid('CL'),name:name,category:cat,owner:owner,status:status,since:since,mine:false,
@@ -494,9 +499,9 @@ function seed(){
       by:who||'A. Rao',links:links,mine:false});
   }
 
-  var c1=co('Northwind Logistics','Light Industrial','A. Rao','Active Account','2023-04-11');
-  var c2=co('Halcyon Health Group','Healthcare','A. Rao','Active Account','2024-01-22');
-  var c3=co('Pemberton Retail','Retail Operations','M. Silva','Active Account','2025-02-03');
+  var c1=co('Northwind Logistics','Light Industrial','A. Rao','Active Client','2023-04-11');
+  var c2=co('Halcyon Health Group','Healthcare','A. Rao','Active Client','2024-01-22');
+  var c3=co('Pemberton Retail','Retail Operations','M. Silva','Active Client','2025-02-03');
   var c4=co('Ardent Field Services','Admin & Clerical','M. Silva','Prospect','2026-06-15');
 
   var t1=ct(c1,'Dana Whitfield','Head of Operations',true);
@@ -506,24 +511,24 @@ function seed(){
   var t5=ct(c3,'Tomas Berger','Store Operations Manager',true);
   var t6=ct(c4,'Nina Vogel','Contracts Manager',true);
 
-  var j1=jo(c1,t2,'Warehouse Team Lead','Contract',3,1,30,38,'Aurora — East hub','A. Rao',dOff(-34),'Accepting Candidates','Light Industrial');
+  var j1=jo(c1,t2,'Warehouse Team Lead','Contract',3,0,30,38,'Aurora — East hub','A. Rao',dOff(-34),'Accepting Candidates','Light Industrial');
   var j2=jo(c1,t1,'Fleet Dispatcher','Contract To Hire',1,0,26,32,'Aurora — East hub','A. Rao',dOff(-19),'Accepting Candidates','Light Industrial');
-  var j3=jo(c2,t3,'Registered Nurse — nights','Contract',4,2,50,64,'Halcyon Central','A. Rao',dOff(-47),'Covered','Healthcare');
+  var j3=jo(c2,t3,'Registered Nurse — nights','Contract',4,0,50,64,'Halcyon Central','A. Rao',dOff(-47),'Covered','Healthcare');
   var j4=jo(c3,t5,'Assistant Store Manager','Direct Hire',2,2,23,29,'Pemberton — North mall','M. Silva',dOff(-61),'Accepting Candidates','Retail Operations');
   var j5=jo(c2,t4,'Medical Records Clerk','Contract',1,0,19,24,'Halcyon Central','M. Silva',dOff(-26),'Accepting Candidates','Admin & Clerical');
 
   var k1=ca('Marcus Delaney','Warehouse Supervisor','Aurora',['Inventory','Team lead','WMS'],'Referral',36,'2 weeks','Submitted','Light Industrial');
   var k2=ca('Ivy Chandran','Logistics Coordinator','Aurora',['Dispatch','Route planning'],'Job Board',31,'Immediate','Active','Light Industrial');
-  var k3=ca('Owen Baptiste','Warehouse Operative','Aurora',['Forklift','Picking'],'Walk-in',27,'Immediate','Active','Light Industrial');
+  var k3=ca('Owen Baptiste','Warehouse Operative','Aurora',['Forklift','Picking'],'Recruiter Outreach',27,'Immediate','Active','Light Industrial');
   var k4=ca('Renata Sol','Registered Nurse','Halcyon',['ICU','Night shift','BLS'],'Referral',62,'4 weeks','Submitted','Healthcare');
   var k5=ca('Peter Nkemelu','Registered Nurse','Halcyon',['Med-surg','Night shift'],'Job Board',60,'Immediate','Submitted','Healthcare');
-  var k6=ca('Adaeze Kalu','Registered Nurse','Halcyon',['Paediatrics'],'Database',65,'Notice period','Active','Healthcare');
+  var k6=ca('Adaeze Kalu','Registered Nurse','Halcyon',['Paediatrics'],'LinkedIn',65,'Notice period','Active','Healthcare');
   var k7=ca('Sofia Marchetti','Store Supervisor','Pemberton',['Rostering','Shrinkage control'],'Job Board',28,'Immediate','Placed','Retail Operations');
   var k8=ca('Hugo Lindqvist','Records Administrator','Halcyon',['EMR','Data entry'],'Job Board',23,'Immediate','Active','Admin & Clerical');
   var k9=ca('Bea Toussaint','Dispatcher','Aurora',['Fleet','Telematics'],'Referral',33,'1 week','Submitted','Light Industrial');
   var k10=ca('Cyrus Ahmadi','Warehouse Operative','Aurora',['Picking','Stock count'],'Job Board',26,'Immediate','New Lead','Light Industrial');
   var k11=ca('Nadia Farouk','Nurse Practitioner','Halcyon',['Triage','ER'],'Referral',70,'6 weeks','Active','Healthcare');
-  var k12=ca('Elliot Kwan','Assistant Manager','Pemberton',['Merchandising','Cash handling'],'Walk-in',30,'2 weeks','Placed','Retail Operations');
+  var k12=ca('Elliot Kwan','Assistant Manager','Pemberton',['Merchandising','Cash handling'],'Recruiter Outreach',30,'2 weeks','Placed','Retail Operations');
 
   sub(j1,k1,'Client Submission',9,{screenNote:'Six years supervising a 40-head pick line. Comfortable on nights.',
     summary:'Strong fit for the East hub lead role. Runs shift handovers today and has WMS exposure on two systems.',
@@ -589,14 +594,14 @@ function seed(){
      owner:'A. Rao',candidateIds:[k1.id,k3.id,k10.id],mine:false}
   ];
 
-  note('Call','Quarterly review with Dana. Two more lead roles expected next month.',5,{companyId:c1.id,contactId:t1.id});
+  note('Outbound Call','Quarterly review with Dana. Two more lead roles expected next month.',5,{companyId:c1.id,contactId:t1.id});
   note('Email','Sent updated rate card for night-shift nursing.',3,{companyId:c2.id,contactId:t3.id});
-  note('Meeting','Store walk-through with Tomas. Flagged rostering gaps.',12,{companyId:c3.id,contactId:t5.id});
-  note('Other','Prospect. Contract terms under review by their legal team.',20,{companyId:c4.id});
-  note('Call','Confirmed availability and travel radius.',9,{candidateId:k1.id,jobId:j1.id});
-  note('Call','Talked through the offer. Wants a 14-day start runway.',6,{candidateId:k4.id,jobId:j3.id});
-  note('Call','Left voicemail. No response yet.',11,{candidateId:k2.id});
-  note('Call','Client chased on submission volume. Two per week agreed.',2,{jobId:j3.id,companyId:c2.id,contactId:t3.id});
+  note('Client Visit','Store walk-through with Tomas. Flagged rostering gaps.',12,{companyId:c3.id,contactId:t5.id});
+  note('Internal Memo','Prospect. Contract terms under review by their legal team.',20,{companyId:c4.id});
+  note('Prescreen','Confirmed availability and travel radius.',9,{candidateId:k1.id,jobId:j1.id});
+  note('Outbound Call','Talked through the offer. Wants a 14-day start runway.',6,{candidateId:k4.id,jobId:j3.id});
+  note('Left Message','Left voicemail. No response yet.',11,{candidateId:k2.id});
+  note('Inbound Call','Client chased on submission volume. Two per week agreed.',2,{jobId:j3.id,companyId:c2.id,contactId:t3.id});
 
   db.tasks=[
     {id:uid('TK'),subject:'Chase client feedback on the East hub lead sendout',due:iso(dOff(0)),
@@ -607,6 +612,21 @@ function seed(){
      priority:'High',owner:'A. Trainee',entity:'PL-1000',done:false,mine:false}
   ];
   generatePool(db);
+  /* The hand-written candidates need CVs too: a client submission is refused without one,
+     so a seeded desk with no CVs would be unworkable. */
+  (function(){
+    var r=rng(19870423);
+    db.candidates.forEach(function(c){
+      if(c.cv)return;
+      var vert=VERTICALS[c.category]?c.category:'Light Industrial';
+      var certs=pickN(r,VERTICALS[vert].certs,2);
+      var years=3+Math.floor(r()*18);
+      c.years=c.years||years;
+      c.cv=buildCV(r,c.name,c.occupation,vert,c.location,c.skills,certs,c.years,c.email,c.phone);
+      c.cvName=c.name.replace(/[^A-Za-z]+/g,'_')+'_CV.txt';
+      c.cvAt=iso(dOff(-Math.floor(r()*120)));
+    });
+  })();
   return db;
 }
 
@@ -677,6 +697,19 @@ function timeToFill(){
   return v.length?Math.round(v.reduce(function(a,b){return a+b;},0)/v.length):null;
 }
 function markup(p,b){return p?Math.round((b-p)/p*100):0;}
+/* C1: margin bands. 20%+ normal, 10 to under 20 needs a manager, under 10 is refused. */
+var MARGIN_OK=20,MARGIN_FLOOR=10;
+function marginBand(pay,bill){
+  var m=(bill&&pay)?((bill-pay)/bill*100):0;
+  if(m<MARGIN_FLOOR)return {k:'block',m:m,t:'below the '+MARGIN_FLOOR+'% floor'};
+  if(m<MARGIN_OK)return {k:'review',m:m,t:'between '+MARGIN_FLOOR+'% and '+MARGIN_OK+'%, so it needs a manager'};
+  return {k:'ok',m:m,t:'at or above '+MARGIN_OK+'%'};
+}
+function marginPill(pay,bill){
+  var b=marginBand(pay,bill);
+  var cls=b.k==='ok'?'p-good':(b.k==='review'?'p-warn':'p-bad');
+  return '<span class="pill '+cls+'">'+Math.round(b.m)+'%</span>';
+}
 function margin(p,b){return b?Math.round((b-p)/b*100):0;}
 
 /* ---------------------------------------------------------------- tabs */
@@ -1019,6 +1052,31 @@ A.setJobStatus=function(id){
     }});
 };
 
+function digits(x){return String(x||'').replace(/\D+/g,'');}
+function dupCheck(v,selfId){
+  var name=String(v.name||'').trim().toLowerCase();
+  var mail=String(v.email||'').trim().toLowerCase();
+  var ph=digits(v.phone);
+  var loc=String(v.location||'').trim().toLowerCase();
+  var hit=null;
+  DB.candidates.forEach(function(c){
+    if(hit||c.id===selfId)return;
+    if(mail&&String(c.email||'').trim().toLowerCase()===mail)
+      hit={field:'email',why:'the same email address',c:c};
+    else if(ph&&ph.length>=7&&digits(c.phone)===ph)
+      hit={field:'phone',why:'the same phone number',c:c};
+    else if(name&&c.name.trim().toLowerCase()===name){
+      if(loc&&String(c.location||'').trim().toLowerCase()===loc)
+        hit={field:'name',why:'the same name and location',c:c};
+      else hit={field:'name',why:'the same name',c:c};
+    }
+  });
+  if(!hit)return null;
+  hit.msg='Possible duplicate: '+hit.c.name+' ('+hit.c.id+') already has '+hit.why+
+    '. Open that record and add to it rather than creating a second one. '+
+    'Duplicates split the activity history and double count every ratio built on candidate volume.';
+  return hit;
+}
 A.addCandidate=function(jobId){
   openForm({title:'Add Candidate',
     intro:'Duplicate candidate records split activity history and corrupt every ratio built on candidate volume. Check before you create.',
@@ -1030,7 +1088,7 @@ A.addCandidate=function(jobId){
       {k:'category',label:'Category',type:'select',required:true,options:CATEGORIES},
       {k:'location',label:'Location',type:'text',required:true},
       {k:'skills',label:'Primary skills',type:'text',required:true,hint:'Comma separated. This is what you will search on later.'},
-      {k:'source',label:'Source',type:'select',required:true,options:['Referral','Job Board','Walk-in','Database','Social','Rehire','Careers site'],
+      {k:'source',label:'Source',type:'select',required:true,options:CD_SOURCES,
         hint:'Source is a reportable metric. Guessing corrupts it.'},
       {k:'desiredRate',label:'Desired pay rate per hour',type:'number',required:true,minNum:1},
       {k:'availability',label:'Availability',type:'select',required:true,options:['Immediate','1 week','2 weeks','4 weeks','Notice period']},
@@ -1041,9 +1099,8 @@ A.addCandidate=function(jobId){
     validate:function(v){
       var e={};
       if(v.email&&v.email.indexOf('@')<0)e.email='Enter a full email address.';
-      var dup=DB.candidates.filter(function(c){
-        return c.name.trim().toLowerCase()===String(v.name||'').trim().toLowerCase();});
-      if(dup.length)e.name='A candidate with this name already exists ('+dup[0].id+'). Open that record instead of creating a second one.';
+      var d=dupCheck(v,null);
+      if(d)e[d.field]=d.msg;
       return e;
     },
     submit:'Save Candidate',
@@ -1120,23 +1177,45 @@ function stepSpec(sub,next){
       {k:'payRate',label:'Pay rate per hour',type:'number',required:true,minNum:1,value:sub.payRate||cand.desiredRate},
       {k:'billRate',label:'Bill rate per hour',type:'number',required:true,minNum:1,value:sub.billRate||job.billRate},
       {k:'sentTo',label:'Submit to',type:'select',required:true,value:sub.sentTo||job.contactId,
-        options:coContacts(job.companyId).map(function(c){return {v:c.id,t:c.name+' · '+c.title};})},
-      {k:'consent',label:'Candidate has agreed to be submitted to '+coName(job.companyId)+' at this rate',type:'check',required:true,
+        options:coContacts(job.companyId).map(function(c){return {v:c.id,t:c.name+' \u00b7 '+c.title};})},
+      {k:'consent',label:'Candidate has confirmed interest in this role and consented to being submitted to '+
+        coName(job.companyId)+' at this rate',type:'check',required:true,
         hint:'Submitting without consent is a compliance breach, not a shortcut.'}
     ],
     validate:function(v){
       var e={};
-      if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate. This sendout would run at zero or negative margin.';
-      if(Number(v.billRate)>job.billRate)e.billRate='Above the job order bill rate of '+money(job.billRate)+'. Get the rate varied on the job order first.';
-      if(Number(v.payRate)<cand.desiredRate)e.payRate='Below the candidate\u2019s confirmed expectation of '+money(cand.desiredRate)+'. Renegotiate before sending, not after.';
+      /* Hard: these stop the sendout outright. */
+      if(!cand.cv)
+        e.consent='HARD STOP: '+cand.name+' has no CV on file. A client submission without a CV is not a '+
+          'submission. Upload the CV on the candidate record first.';
+      else if(['Do Not Call','Archive'].indexOf(cand.status)>=0)
+        e.consent='HARD STOP: this candidate is set to '+cand.status+
+          ' and must not be submitted. Change the status on the candidate record first, with a reason.';
+      else if(['Closed','Cancelled'].indexOf(job.status)>=0)
+        e.consent='HARD STOP: the job order is '+job.status+', so nothing can be submitted to it.';
+      else if(Number(v.billRate)<=Number(v.payRate))
+        e.billRate='HARD STOP: bill rate must exceed pay rate. This sendout would run at zero or negative margin.';
+      /* Soft: worth flagging, overridable in permissive mode. */
+      else {
+        if(Number(v.billRate)>job.billRate)e.billRate='This is above the job order bill rate of '+
+          money(job.billRate)+'. That needs a reason and a manager behind it before the placement can be approved.';
+        if(!sub.screenNote||sub.screenNote.length<40)
+          e.sentTo='No screening notes on this submission. You are vouching for someone you have not written up.';
+        else if(!sub.summary||sub.summary.length<60)
+          e.sentTo='No client-facing summary. The client has to work out for themselves why you sent this.';
+        else if(Number(v.payRate)<cand.desiredRate)
+          e.payRate='Below the confirmed pay expectation of '+money(cand.desiredRate)+
+            '. Renegotiate before sending, not after.';
+      }
       return e;
     },
     apply:function(v){
       sub.payRate=Number(v.payRate);sub.billRate=Number(v.billRate);sub.sentTo=v.sentTo;
       sub.sendoutAt=new Date().toISOString();
       if(cand.status!=='Placed')cand.status='Submitted';
-      var covered=jobSubs(job.id).filter(function(s){return !!s.sendoutAt;}).length+1;
+      var covered=jobSubs(job.id).filter(function(x){return !!x.sendoutAt;}).length+1;
       if(job.status==='Accepting Candidates'&&covered>=job.openings*2)job.status='Covered';
+      notify('Sendout: '+cand.name+' to '+coName(job.companyId),'job',job.id);
     }},
   'Interview Scheduled':{
     intro:'Scheduling creates an appointment on both the candidate and the job order. Interview slots that live only in your inbox are how candidates get missed.',
@@ -1171,7 +1250,8 @@ function stepSpec(sub,next){
     validate:function(v){
       var e={};
       if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate.';
-      if(Number(v.billRate)>job.billRate)e.billRate='Above the job order bill rate of '+money(job.billRate)+'.';
+      if(Number(v.billRate)>job.billRate)e.billRate='Above the job order bill rate of '+
+        money(job.billRate)+'. Record the reason and route it for approval rather than quietly repricing.';
       if(v.startDate&&new Date(v.startDate+'T00:00')<new Date(iso(TODAY)+'T00:00'))e.startDate='Start date is in the past.';
       return e;
     },
@@ -1200,7 +1280,8 @@ function stepSpec(sub,next){
       sub.startDate=v.startDate;
       var p={id:uid('PL'),jobId:job.id,candidateId:cand.id,subId:sub.id,status:'Pending Approval',
         employmentType:v.employmentType,start:v.startDate,end:v.endDate,
-        payRate:sub.payRate,billRate:sub.billRate,approvedBy:null,mine:true,onboard:{}};
+        payRate:sub.payRate,billRate:sub.billRate,approvedBy:null,createdBy:'A. Trainee',
+        mine:true,onboard:{}};
       ONBOARD.forEach(function(o){p.onboard[o.k]=false;});
       DB.placements.push(p);
       job.filled+=1;
@@ -1263,32 +1344,54 @@ A.reject=function(subId){
 A.approvePlacement=function(id){
   var p=byId(DB.placements,id);
   var j=byId(DB.jobs,p.jobId);
+  var band=marginBand(p.payRate,p.billRate);
+  var overRate=p.billRate>j.billRate;
+  var creator=p.createdBy||'A. Trainee';
+  var approvers=['M. Silva','A. Rao','A. Trainee'].filter(function(x){return x!==creator;});
   openForm({title:'Approve placement',
-    intro:'Approval is a commercial sign-off. Once approved the placement is billable, so the rates, dates and employment type must match the signed paperwork.',
-    note:candName(p.candidateId)+' · '+jobName(p.jobId)+' · markup '+markup(p.payRate,p.billRate)+'% · gross margin '+margin(p.payRate,p.billRate)+'%',
+    intro:'Approval is a commercial sign-off, and a recruiter cannot approve their own placement. Once approved the placement is billable, so the rates, dates and employment type must match the signed paperwork.',
+    note:candName(p.candidateId)+' \u00b7 '+jobName(p.jobId)+' \u00b7 markup '+markup(p.payRate,p.billRate)+
+      '% \u00b7 gross margin '+Math.round(band.m)+'% ('+band.t+')'+
+      (overRate?' \u00b7 bill rate is above the job order rate':''),
     fields:[
-      {k:'decision',label:'Decision',type:'select',required:true,options:['Approved','Pending Approval']},
-      {k:'checked',label:'Rates, start and end dates and employment type match the signed contract',type:'check',required:true},
-      {k:'note',label:'Approval note',type:'textarea',required:true,min:20}
+      {k:'decision',label:'Decision',type:'select',required:true,
+        options:['Approved','Rejected','Pending Approval'],
+        hint:'Rejected sends it back to the recruiter to correct and resubmit.'},
+      {k:'approver',label:'Approved by',type:'select',required:true,options:approvers,
+        hint:'Created by '+creator+', who cannot sign it off. '+
+          (band.k==='review'?'This margin needs a manager.':'')},
+      {k:'reason',label:overRate?'Reason for billing above the job order rate':'Approval note',
+        type:'textarea',required:true,min:20,
+        hint:overRate?'The bill rate exceeds the job order rate. Record who agreed the variation on the client side.':''},
+      {k:'checked',label:'Rates, start and end dates and employment type match the signed contract',type:'check',required:true}
     ],
     validate:function(v){
       var e={};
-      if(v.decision==='Approved'&&margin(p.payRate,p.billRate)<10)
-        e.decision='Gross margin is '+margin(p.payRate,p.billRate)+'%, below the 10% threshold. This needs a manager override recorded on the job order before approval.';
+      if(v.decision==='Approved'&&band.k==='block')
+        e.decision='Gross margin is '+Math.round(band.m)+'%, '+band.t+
+          '. This cannot be approved. Renegotiate the pay or bill rate, or withdraw the placement.';
+      if(v.decision==='Approved'&&v.approver==='A. Trainee'&&band.k==='review')
+        e.approver='A margin '+band.t+' cannot be signed off by a recruiter. Route it to M. Silva or A. Rao.';
+      if(v.decision==='Approved'&&v.approver===creator)
+        e.approver='The person who created the placement cannot approve it.';
       return e;
     },
     submit:'Record decision',
     onSubmit:function(v){
       p.status=v.decision;
-      p.approvedBy=v.decision==='Approved'?'A. Trainee':null;
-      DB.notes.push({id:uid('NT'),action:'Other',text:'Placement '+v.decision+'. '+v.note,at:new Date().toISOString(),
-        by:'A. Trainee',links:{candidateId:p.candidateId,jobId:p.jobId,companyId:j.companyId},mine:true});
-      log('Placement '+v.decision,candName(p.candidateId));
-      toast('Placement '+v.decision.toLowerCase(),v.decision==='Approved'?'ok':'');
+      p.approvedBy=v.decision==='Approved'?v.approver:null;
+      p.approvalNote=v.reason;
+      DB.notes.push({id:uid('NT'),action:'Internal Memo',
+        text:'Placement '+v.decision+' by '+v.approver+'. '+v.reason,
+        at:new Date().toISOString(),by:'A. Trainee',
+        links:{candidateId:p.candidateId,jobId:p.jobId,companyId:j.companyId},mine:true});
+      log('Placement '+v.decision,candName(p.candidateId)+' \u00b7 margin '+Math.round(band.m)+
+        '% \u00b7 by '+v.approver);
+      notify('Placement '+v.decision.toLowerCase()+' for '+candName(p.candidateId),'placement',p.id);
+      toast('Placement '+v.decision.toLowerCase(),v.decision==='Approved'?'ok':'no');
       render();
     }});
 };
-
 A.toggleOnboard=function(pid,key){
   var p=byId(DB.placements,pid);
   var item=ONBOARD.filter(function(o){return o.k===key;})[0];
@@ -1318,6 +1421,10 @@ A.addTime=function(pid){
     return;
   }
   var gaps=ONBOARD.filter(function(o){return !p.onboard[o.k];});
+  if(gaps.length&&DB.blockTimeOnOnboarding===false){
+    toast(gaps.length+' onboarding item(s) still outstanding','no');
+    gaps=[];
+  }
   if(gaps.length){
     openInfo('Time entry blocked',
       'This placement has '+gaps.length+' outstanding onboarding item(s). Hours cannot be entered until the pack is complete, because an unverified worker cannot be invoiced.',
@@ -1330,13 +1437,18 @@ A.addTime=function(pid){
       {k:'weekEnding',label:'Week ending',type:'date',required:true,value:iso(dOff(0))},
       {k:'regular',label:'Regular hours',type:'number',required:true,minNum:0,value:40},
       {k:'overtime',label:'Overtime hours',type:'number',required:true,minNum:0,value:0,
-        hint:'Overtime bills at 1.5x. Client approval is required above 8 hours in a week.'},
+        hint:'Anything over 40 regular hours is overtime and bills at 1.5x.'},
+      {k:'otApproved',label:'Client has pre-approved this overtime',type:'check',
+        hint:'Unapproved overtime still goes through, but it is flagged for the client to confirm before invoicing.'},
       {k:'note',label:'Note',type:'text',required:false}
     ],
     validate:function(v){
       var e={};
       if(Number(v.regular)>60)e.regular='Over 60 regular hours in a week needs client sign-off before entry.';
-      if(Number(v.overtime)>8)e.overtime='Over 8 overtime hours needs written client approval recorded as a note first.';
+      if(Number(v.overtime)>0&&!v.otApproved)
+        e.otApproved='This overtime has not been pre-approved by the client. It can still be entered, '+
+          'but it will be flagged as unapproved and held before invoicing.';
+      if(Number(v.overtime)>24)e.overtime='HARD STOP: over 24 overtime hours in one week needs a manager to enter it.';
       var dup=DB.times.filter(function(t){return t.placementId===pid&&t.weekEnding===v.weekEnding;});
       if(dup.length)e.weekEnding='A time entry already exists for this week ('+dup[0].status+').';
       return e;
@@ -1344,7 +1456,9 @@ A.addTime=function(pid){
     submit:'Submit time entry',
     onSubmit:function(v){
       DB.times.push({id:uid('TE'),placementId:pid,weekEnding:v.weekEnding,regular:Number(v.regular),
-        overtime:Number(v.overtime),status:'Submitted',note:v.note||'',mine:true});
+        overtime:Number(v.overtime),otApproved:!!v.otApproved,status:'Submitted',note:v.note||'',mine:true});
+      if(Number(v.overtime)>0&&!v.otApproved)
+        notify('Unapproved overtime on '+candName(p.candidateId)+' — needs client confirmation','placement',pid);
       log('Submitted time entry',candName(p.candidateId)+' · week ending '+v.weekEnding);
       toast('Time entry submitted','ok');render();
     }});
@@ -1591,7 +1705,9 @@ var SCENARIOS={
       {t:'Convert the lead to a company and contact',h:'Open the lead → Convert Lead',
        c:function(){return DB.companies.some(function(c){return c.mine;})&&DB.contacts.some(function(c){return c.mine;});}},
       {t:'Log a call note against the company and contact',h:'Link one note to both records',
-       c:function(){return DB.notes.some(function(n){return n.mine&&n.action==='Call'&&n.links.companyId&&n.links.contactId;});}},
+       c:function(){return DB.notes.some(function(n){
+         return n.mine&&/Call|Left Message|Prescreen|Client Visit/.test(n.action)&&
+           n.links.companyId&&n.links.contactId;});}},
       {t:'Raise an Opportunity',h:'Company record → Add Opportunity',
        c:function(){return DB.opps.some(function(o){return o.mine;});}},
       {t:'Convert the opportunity to a Job Order',h:'Opportunity → Convert to Job Order',
@@ -1600,6 +1716,8 @@ var SCENARIOS={
        c:function(){return DB.jobs.some(function(j){return j.mine&&j.published;});}},
       {t:'Add a Candidate',h:'Job order → New Candidate. Watch the duplicate check',
        c:function(){return DB.candidates.some(function(c){return c.mine;});}},
+      {t:'Upload the candidate CV',h:'No CV on file means no client submission',
+       c:function(){return DB.candidates.some(function(c){return c.mine&&!!c.cv;});}},
       {t:'Add the candidate to your job order pipeline',h:'Creates the submission at New Lead',
        c:function(){return mySubs().length>0;}},
       {t:'Move to Internal Submission',h:'Screening notes plus a client-facing summary',
@@ -1725,7 +1843,7 @@ A.editCandidate=function(id){
       {k:'skills',label:'Primary skills',type:'text',required:true,value:(c.skills||[]).join(', '),
         hint:'Comma separated. These are searchable, so spelling matters more here than anywhere else.'},
       {k:'source',label:'Source',type:'select',required:true,value:c.source,
-        options:['Referral','Job Board','Walk-in','Database','Social','Rehire','Careers site']},
+        options:CD_SOURCES},
       {k:'desiredRate',label:'Desired pay rate',type:'number',required:true,minNum:1,value:c.desiredRate},
       {k:'availability',label:'Availability',type:'select',required:true,value:c.availability,
         options:['Immediate','1 week','2 weeks','4 weeks','Notice period']},
@@ -1738,9 +1856,8 @@ A.editCandidate=function(id){
     validate:function(v){
       var e={};
       if(v.email&&v.email.indexOf('@')<0)e.email='Enter a full email address.';
-      var dup=DB.candidates.filter(function(x){
-        return x.id!==c.id&&x.name.trim().toLowerCase()===String(v.name||'').trim().toLowerCase();});
-      if(dup.length)e.name='Another candidate already has this name ('+dup[0].id+'). Merge rather than duplicate.';
+      var d=dupCheck(v,c.id);
+      if(d)e[d.field]='Another candidate already has '+d.why+': '+d.c.name+' ('+d.c.id+'). Merge rather than duplicate.';
       var blocking=['Do Not Call','Archive'].indexOf(v.status)>=0;
       if(blocking&&live.length&&!v.ack)
         e.status='This candidate is live on '+live.length+' pipeline(s). Setting '+v.status+
@@ -2189,8 +2306,53 @@ A.deleteSearch=function(id){
   if(s)log('Deleted saved search',s.name);
   render();
 };
+var candSel={};
+function selStore(){return route.view==='search'?searchSel:candSel;}
 A.selectedIds=function(){
-  return Object.keys(searchSel).filter(function(k){return searchSel[k];});
+  var st=selStore();
+  return Object.keys(st).filter(function(k){return st[k];});
+};
+A.toggleSel=function(id){var st=selStore();st[id]=!st[id];render();};
+A.selectAll=function(ids,on){
+  var st=selStore();
+  ids.forEach(function(id){if(on)st[id]=true;else delete st[id];});
+  render();
+};
+function selBox(id,on){
+  return '<span class="selbox'+(on?' on':'')+'" data-act="sel" data-id="'+id+
+    '" role="checkbox" tabindex="0" aria-checked="'+(!!on)+'">'+(on?'\u2713':'')+'</span>';
+}
+function selBar(n,extra){
+  if(!n)return '';
+  return '<div class="selbar"><b>'+n+' selected</b>'+
+    '<button class="btn sm" data-act="mass-update">Mass Update</button>'+
+    '<button class="btn ghost sm" data-act="mass-pipeline">Add to Job</button>'+
+    '<button class="btn ghost sm" data-act="mass-tearsheet">Add to Tearsheet</button>'+
+    '<button class="btn ghost sm" data-act="mass-note">Add Note</button>'+
+    (extra||'')+
+    '<span class="sp"></span>'+
+    '<button class="btn ghost sm" data-act="sel-none">Clear</button></div>';
+}
+A.massNote=function(){
+  var ids=A.selectedIds();
+  if(!ids.length){toast('Select some records first','no');return;}
+  openForm({title:'Add a note to '+ids.length+' candidate(s)',
+    intro:'The same note is written to every selected record. Use it for a campaign or a bulk call-out, not for anything specific to one person.',
+    fields:[
+      {k:'action',label:'Action',type:'select',required:true,options:NOTE_ACTIONS,value:'Other'},
+      {k:'text',label:'Comments',type:'textarea',required:true,min:25}
+    ],
+    submit:'Add to '+ids.length+' record(s)',
+    onSubmit:function(v){
+      ids.forEach(function(id){
+        DB.notes.push({id:uid('NT'),action:v.action,text:v.text,at:new Date().toISOString(),
+          by:'A. Trainee',links:{candidateId:id},mine:true});
+      });
+      log('Bulk note — '+ids.length+' candidates',v.action+': '+v.text.slice(0,60));
+      toast('Note added to '+ids.length+' records','ok');
+      if(route.view==='search')searchSel={};else candSel={};
+      render();
+    }});
 };
 A.massTearsheet=function(){
   var ids=A.selectedIds();
@@ -2279,7 +2441,9 @@ function vSearch(){
             'aria-checked="'+on+'" style="width:16px;height:16px;border:1.5px solid '+(on?'var(--good)':'var(--line)')+
             ';background:'+(on?'var(--good)':'#fff')+';border-radius:3px;display:grid;place-items:center;'+
             'cursor:pointer;color:#fff;font-size:11px">'+(on?'✓':'')+'</span></td>'+
-            '<td><span class="lnk" data-go="candidate" data-id="'+c.id+'">'+esc(c.name)+'</span></td>'+
+            '<td><span class="qv" data-act="peek" data-type="candidate" data-id="'+c.id+
+              '" role="button" tabindex="0" title="Quick view">\u25CE</span> '+
+              '<span class="lnk" data-go="candidate" data-id="'+c.id+'">'+esc(c.name)+'</span></td>'+
             '<td class="muted">'+esc(c.occupation)+'</td>'+
             '<td class="muted" style="font-size:12px">'+esc(c.category)+'</td>'+
             '<td>'+cdPill(c)+'</td><td class="muted">'+esc(c.location)+'</td>'+
@@ -2516,15 +2680,29 @@ function vCandidates(){
       (rows.length?((candPage-1)*per+1)+'\u2013'+Math.min(rows.length,candPage*per)+' of '+rows.length:'0')+
       ' matching'+(rows.length!==DB.candidates.length?' of '+DB.candidates.length+' total':'')+
       ' · sorted by '+esc(SORT.cand.k)+'</p>'+
+    selBar(A.selectedIds().length)+
     (page.length?'<div class="tw"><table><thead><tr>'+
+      (function(){
+        var ids=page.map(function(c){return c.id;});
+        var allOn=ids.length&&ids.every(function(i){return candSel[i];});
+        return '<th style="width:26px"></th>'+
+          '<th style="width:30px"><span class="selbox'+(allOn?' on':'')+'" data-act="sel-all" '+
+          'data-ids="'+ids.join(',')+'" data-on="'+(allOn?'0':'1')+'" role="checkbox" tabindex="0" '+
+          'aria-checked="'+(!!allOn)+'" title="'+(allOn?'Clear this page':'Select this page')+'">'+
+          (allOn?'\u2713':'')+'</span></th>';
+      })()+
       sortTh('cand','name','Name')+sortTh('cand','occupation','Occupation')+
       sortTh('cand','category','Category')+sortTh('cand','status','Status')+
       sortTh('cand','location','Location')+sortTh('cand','availability','Availability')+
       sortTh('cand','desiredRate','Rate','num')+sortTh('cand','cv','CV')+
       sortTh('cand','subs','Pipelines','num')+'</tr></thead><tbody>'+
       page.map(function(c){
-        return '<tr class="click" data-go="candidate" data-id="'+c.id+'">'+
-          '<td><span class="lnk">'+esc(c.name)+'</span>'+(c.mine?' <span class="tag">yours</span>':'')+'</td>'+
+        return '<tr class="click'+(candSel[c.id]?' sel':'')+'" data-go="candidate" data-id="'+c.id+'">'+
+          '<td><span class="qv" data-act="peek" data-type="candidate" data-id="'+c.id+
+            '" role="button" tabindex="0" title="Quick view">\u25CE</span></td>'+
+          '<td>'+selBox(c.id,!!candSel[c.id])+'</td>'+
+          '<td><span class="lnk">'+esc(c.name)+'</span>'+
+          (c.mine?' <span class="tag">yours</span>':'')+'</td>'+
           '<td class="muted">'+esc(c.occupation)+'</td>'+
           '<td class="muted" style="font-size:12px">'+esc(c.category)+'</td>'+
           '<td>'+cdPill(c)+'</td><td class="muted">'+esc(c.location)+'</td>'+
@@ -2544,7 +2722,7 @@ function vCandidates(){
 
 /* ---------------------------------------------------------------- form engine */
 function openForm(cfg){
-  var vals={},errs={},root=document.getElementById('modal-root');
+  var vals={},errs={},soft=false,root=document.getElementById('modal-root');
   function fieldOptions(f,v){
     var raw=f.optionsFrom?f.optionsFrom(v):(f.options||[]);
     return raw.map(function(o){return (typeof o==='object')?o:{v:o,t:o};});
@@ -2560,12 +2738,12 @@ function openForm(cfg){
       '<div class="modal-h"><h4>'+esc(cfg.title)+'</h4>'+(cfg.note?'<p>'+esc(cfg.note)+'</p>':'')+'</div>'+
       '<div class="modal-b">'+((cfg.intro&&DB.training!==false)?'<div class="callout">'+esc(cfg.intro)+'</div>':'')+
       cfg.fields.map(function(f){
-        var bad=errs[f.k]?' bad':'',id='fld-'+f.k;
+        var bad=errs[f.k]?(soft?' soft':' bad'):'',id='fld-'+f.k;
         if(f.type==='check'){
           return '<div class="f cb'+bad+'"><input type="checkbox" id="'+id+'" data-f="'+f.k+'"'+(vals[f.k]?' checked':'')+'>'+
             '<div><label for="'+id+'">'+esc(f.label)+'</label>'+
             (f.hint?'<div class="hint">'+esc(f.hint)+'</div>':'')+
-            (errs[f.k]?'<div class="err">'+esc(errs[f.k])+'</div>':'')+'</div></div>';
+            (errs[f.k]?'<div class="'+(soft?'warn-note':'err')+'">'+esc(errs[f.k])+'</div>':'')+'</div></div>';
         }
         var lab='<label for="'+id+'">'+esc(f.label)+(f.required?' <span title="required">*</span>':'')+'</label>',body='';
         if(f.type==='textarea')body='<textarea id="'+id+'" data-f="'+f.k+'">'+esc(vals[f.k])+'</textarea>';
@@ -2578,10 +2756,17 @@ function openForm(cfg){
         else body='<input type="'+(f.type||'text')+'" id="'+id+'" data-f="'+f.k+'" value="'+esc(vals[f.k])+'">';
         return '<div class="f'+bad+'">'+lab+body+
           (f.hint?'<div class="hint">'+esc(f.hint)+'</div>':'')+
-          (errs[f.k]?'<div class="err">'+esc(errs[f.k])+'</div>':'')+'</div>';
+          (errs[f.k]?'<div class="'+(soft?'warn-note':'err')+'">'+esc(errs[f.k])+'</div>':'')+'</div>';
       }).join('')+'</div>'+
+      (soft?'<div class="callout warn" style="margin-top:4px"><b>These are warnings, not blocks.</b> '+
+        'Permissive mode is on, which is how a live system usually behaves. Tick the box to save as it '+
+        'stands — the override is recorded against your name in the activity log.'+
+        '<div class="f cb" style="margin:9px 0 0"><input type="checkbox" id="ovr" data-f="__override"'+
+        (vals.__override?' checked':'')+'>'+
+        '<label for="ovr">Save anyway and record the override</label></div></div>':'')+
       '<div class="modal-f"><button class="btn ghost" data-close>Cancel</button>'+
-      '<button class="btn" data-go>'+esc(cfg.submit||'Save')+'</button></div></div></div>';
+      '<button class="btn'+(soft?' danger':'')+'" data-go>'+
+      esc(soft?'Save with override':(cfg.submit||'Save'))+'</button></div></div></div>';
 
     root.querySelectorAll('[data-f]').forEach(function(el){
       var k=el.getAttribute('data-f');
@@ -2598,6 +2783,17 @@ function openForm(cfg){
     var first=root.querySelector('.modal-b input,.modal-b textarea,.modal-b select');
     if(first)first.focus();
   }
+  /* Rules that stay hard even in permissive mode: they would corrupt records
+     rather than merely lower data quality. */
+  var HARD=[/HARD STOP/,/already exists/i,/already on this pipeline/i,/no openings left/i,
+    /Do Not Call|set to Archive/i,/already been approved at/i,/already been converted/i,
+    /Use Convert/i,/after the start date/i,/ends before/i,/cannot go below/i,
+    /converted to job order/i,/double count the revenue/i,/not look like a sandbox snapshot/i,
+    /Could not parse/i,/misstate coverage/i,/already a time entry|already exists for this week/i];
+  function isHard(msg){
+    for(var i=0;i<HARD.length;i++)if(HARD[i].test(String(msg)))return true;
+    return false;
+  }
   function submit(){
     errs={};
     cfg.fields.forEach(function(f){
@@ -2611,7 +2807,25 @@ function openForm(cfg){
       }
     });
     if(cfg.validate){var ex=cfg.validate(vals)||{};for(var k in ex)if(ex[k])errs[k]=ex[k];}
-    if(Object.keys(errs).length){draw();toast('Check the highlighted fields','no');return;}
+    var keys=Object.keys(errs);
+    if(keys.length){
+      var hard=keys.filter(function(k){return isHard(errs[k]);});
+      if(DB.permissive&&!hard.length){
+        if(vals.__override){
+          var reasons=keys.map(function(k){return k+': '+errs[k];}).join(' | ');
+          log('Override — '+(cfg.title||'form'),reasons);
+          notify('Validation overridden on '+(cfg.title||'a form')+' ('+keys.length+' rule'+
+            (keys.length>1?'s':'')+')');
+          errs={};close();cfg.onSubmit(vals);return;
+        }
+        soft=true;draw();
+        toast(keys.length+' warning'+(keys.length>1?'s':'')+' — tick the override to save anyway','no');
+        return;
+      }
+      soft=false;draw();
+      toast(hard.length?'That cannot be saved':'Check the highlighted fields','no');
+      return;
+    }
     close();cfg.onSubmit(vals);
   }
   function close(){root.innerHTML='';document.removeEventListener('keydown',onKey);}
@@ -2765,6 +2979,8 @@ function crumb(parts){
 }
 function rtabs(items,active,view,id){
   return '<div class="rtabs">'+items.map(function(it){
+    if(it.act)
+      return '<a data-act="'+it.act+'" data-id="'+id+'" role="button" tabindex="0">'+esc(it.t)+'</a>';
     return '<a data-rtab="'+it.k+'" data-go="'+view+'" data-id="'+id+'" class="'+(active===it.k?'on':'')+'" role="button" tabindex="0">'+
       esc(it.t)+(it.ct!=null?'<span class="ct">'+it.ct+'</span>':'')+'</a>';
   }).join('')+'</div>';
@@ -2964,9 +3180,11 @@ function vCompanies(){
     '<th class="num">Contacts</th><th class="num">Live job orders</th><th>Last note</th></tr></thead><tbody>'+
     DB.companies.map(function(c){
       var n=notesFor('companyId',c.id)[0];
-      var m={'Active Account':'p-good','Prospect':'p-open','Archive':'p-flat'};
+      var m={'Active Client':'p-good','Prospect':'p-open','Archive':'p-flat'};
       return '<tr class="click" data-go="company" data-id="'+c.id+'">'+
-        '<td><span class="lnk">'+esc(c.name)+'</span>'+(c.mine?' <span class="tag">yours</span>':'')+'</td>'+
+        '<td><span class="qv" data-act="peek" data-type="company" data-id="'+c.id+
+          '" role="button" tabindex="0" title="Quick view">\u25CE</span> '+
+          '<span class="lnk">'+esc(c.name)+'</span>'+(c.mine?' <span class="tag">yours</span>':'')+'</td>'+
         '<td class="muted">'+esc(c.category)+'</td>'+
         '<td><span class="pill '+(m[c.status]||'p-flat')+'">'+esc(c.status)+'</span></td>'+
         '<td class="muted">'+esc(c.owner)+'</td>'+
@@ -2977,7 +3195,9 @@ function vCompanies(){
 }
 function jobRow(j){
   return '<tr class="click" data-go="job" data-id="'+j.id+'">'+
-    '<td><span class="lnk">'+esc(j.title)+'</span>'+(j.published?' <span class="tag">published</span>':'')+
+    '<td><span class="qv" data-act="peek" data-type="job" data-id="'+j.id+
+      '" role="button" tabindex="0" title="Quick view">\u25CE</span> '+
+      '<span class="lnk">'+esc(j.title)+'</span>'+(j.published?' <span class="tag">published</span>':'')+
       '<div class="muted" style="font-size:12px">'+esc(coName(j.companyId))+' · '+esc(j.location)+'</div></td>'+
     '<td class="muted">'+esc(j.type)+'</td>'+
     '<td>'+joPill(j)+'</td><td>'+covBar(j)+'</td>'+
@@ -3148,19 +3368,34 @@ function vJob(){
       '<div><div class="k">Owner</div><div class="v">'+esc(j.owner)+'</div></div>'+
       '<div><div class="k">Start date</div><div class="v">'+fmtD(j.startDate)+'</div></div>'+
     '</div>'+
-    rtabs([{k:'pipeline',t:'Pipeline',ct:live.length},{k:'overview',t:'Description'},
-      {k:'appts',t:'Appointments',ct:appts.length},{k:'placements',t:'Placements',ct:pls.length},
-      {k:'notes',t:'Notes',ct:notes.length}],tab,'job',j.id);
+    chevBar((function(){
+      var best=-1;
+      subs.forEach(function(x){var ix=pIx(x.status);if(ix>best)best=ix;});
+      return best;
+    })(),(function(){
+      var best=-1;
+      subs.forEach(function(x){var ix=pIx(x.status);if(ix>best)best=ix;});
+      return best;
+    })(),null)+
+    rtabs([{k:'overview',t:'Overview'},{k:'pipeline',t:'Submissions',ct:live.length},
+      {k:'appts',t:'Activity',ct:appts.length},{k:'notes',t:'Notes',ct:notes.length},
+      {k:'placements',t:'Placements',ct:pls.length},
+      {k:'edit',t:'Edit',act:'edit-job'}],tab,'job',j.id);
 
   var body='';
   if(tab==='pipeline'){
-    body='<div class="ladder">'+PIPE.map(function(st){
+    body=(DB.training!==false
+      ?'<p class="sub" style="margin:0 0 10px">Drag a card to the next column, or click it to open the submission. Statuses move one step at a time.</p>':'')+
+      '<div class="ladder">'+PIPE.map(function(st){
       var here=live.filter(function(s){return s.status===st.k;});
       return '<div class="rung"><div class="rung-h"><div class="t"><b style="background:'+st.c+'"></b>'+esc(st.k)+'</div>'+
-        '<div class="c">'+here.length+' here · '+f[st.k]+' reached</div></div><div class="rung-b">'+
+        '<div class="c">'+here.length+' here \u00b7 '+f[st.k]+' reached</div></div>'+
+        '<div class="rung-b" data-drop="'+esc(st.k)+'">'+
         (here.length?here.map(function(s){
           var stale=daysBetween(s.modified,new Date())>=5;
-          return '<div class="chip'+(stale?' stale':'')+'" style="border-left-color:'+st.c+'" data-act="sub" data-id="'+s.id+'" role="button" tabindex="0">'+
+          return '<div class="chip'+(stale?' stale':'')+'" style="border-left-color:'+st.c+
+            '" data-act="sub" data-id="'+s.id+'" data-sub="'+s.id+'" draggable="true" '+
+            'role="button" tabindex="0" title="Open, or drag to the next status">'+
             '<div class="n">'+esc(candName(s.candidateId))+'</div>'+
             '<div class="m">'+esc((byId(DB.candidates,s.candidateId)||{}).occupation||'')+'</div>'+
             '<div class="d">'+esc(ago(s.modified))+(stale?' · ageing':'')+'</div></div>';
@@ -3176,14 +3411,33 @@ function vJob(){
           '<td class="muted">'+esc(ago(s.modified))+'</td></tr>';
       }).join('')+'</tbody></table></div></div>':'');
   } else if(tab==='overview'){
-    body='<div class="grid g2"><div class="card"><div class="card-h"><h4>Job description</h4></div><div class="card-b">'+
-      '<p style="margin:0;font-size:13px;max-width:64ch">'+esc(j.description)+'</p></div></div>'+
-      '<div class="card"><div class="card-h"><h4>Detail</h4></div><div class="card-b"><div class="kv">'+
-      '<dt>Category</dt><dd>'+esc(j.category)+'</dd>'+
-      '<dt>Duration</dt><dd>'+esc(j.duration)+'</dd>'+
-      '<dt>Published</dt><dd>'+(j.published?'Yes — visible on the careers site':'No')+'</dd>'+
-      '<dt>Status reason</dt><dd style="font-weight:400">'+esc(j.closedReason||'—')+'</dd>'+
-      '</div></div></div></div>';
+    body='<div class="grid g2" style="align-items:start"><div>'+
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Job Information</h4>'+panelIcons()+'</div>'+
+      detailRows([['Job Title',j.title],
+        ['Company','<span class="lnk" data-go="company" data-id="'+j.companyId+'">'+esc(coName(j.companyId))+'</span>',1],
+        ['Contact','<span class="lnk" data-go="contact" data-id="'+j.contactId+'">'+esc(ctName(j.contactId))+'</span>',1],
+        ['Location',j.location],['Category',j.category],['Status',j.status],
+        ['Owner',j.owner],['Date Added',fmtD(j.added)]])+'</div>'+
+      '<div class="card"><div class="card-h"><h4>Employment</h4>'+panelIcons()+'</div>'+
+      detailRows([['Job Type',j.type],
+        ['Employment Type',j.employmentType||(j.type==='Direct Hire'?'Permanent':'W2')],
+        ['Openings',j.openings+' ('+j.filled+' filled)'],
+        ['Anticipated Start',fmtD(j.startDate)],['Duration',j.duration],
+        ['Published',j.published?'Yes — visible on the careers site':'No']])+'</div></div>'+
+      '<div><div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Compensation</h4>'+panelIcons()+'</div>'+
+      detailRows(j.type==='Direct Hire'
+        ?[['Salary',j.salary?money(j.salary):'not recorded'],
+          ['Fee Percentage',j.feePct?j.feePct+'%':'not recorded'],
+          ['Estimated Fee',(j.salary&&j.feePct)?money(Math.round(j.salary*j.feePct/100)):'—']]
+        :[['Pay Rate',money(j.payRate)+' /hr'],['Bill Rate',money(j.billRate)+' /hr'],
+          ['Spread',money(j.billRate-j.payRate)+' /hr'],
+          ['Markup',markup(j.payRate,j.billRate)+'%'],
+          ['Gross Margin',marginPill(j.payRate,j.billRate)+' '+esc(marginBand(j.payRate,j.billRate).t),1]])+
+      '</div>'+
+      '<div class="card"><div class="card-h"><h4>Job Description</h4>'+panelIcons()+'</div>'+
+      '<div class="card-b"><p style="margin:0;font-size:13px;max-width:64ch">'+esc(j.description)+'</p>'+
+      (j.closedReason?'<p class="muted" style="font-size:12px;margin:10px 0 0">Status reason: '+
+        esc(j.closedReason)+'</p>':'')+'</div></div></div></div>';
   } else if(tab==='appts'){
     body=appts.length?'<div class="tw"><table><thead><tr><th>Subject</th><th>When</th><th>Format</th><th>Attendees</th></tr></thead><tbody>'+
       appts.map(function(a){
@@ -3237,10 +3491,11 @@ function vCandidate(){
       '<div><div class="k">Date added</div><div class="v">'+fmtD(c.added)+'</div></div>'+
       '<div><div class="k">CV</div><div class="v">'+(c.cv?esc(c.cvName||'on file'):'none on file')+'</div></div>'+
     '</div>'+
-    rtabs([{k:'overview',t:'Overview'},{k:'cv',t:'CV',ct:c.cv?'1':'0'},
+    rtabs([{k:'overview',t:'Overview'},{k:'notes',t:'Notes',ct:notes.length},
       {k:'subs',t:'Submissions',ct:subs.length},
-      {k:'placements',t:'Placements',ct:pls.length},{k:'sheets',t:'Tearsheets',ct:sheets.length},
-      {k:'notes',t:'Notes',ct:notes.length}],tab,'candidate',c.id)+
+      {k:'placements',t:'Placements',ct:pls.length},
+      {k:'cv',t:'Resume',ct:c.cv?'1':'0'},{k:'sheets',t:'Tearsheets',ct:sheets.length},
+      {k:'edit',t:'Edit',act:'edit-candidate'}],tab,'candidate',c.id)+
     chevBar(best,best,bestOut);
 
   var body='';
@@ -4502,6 +4757,162 @@ var VIEWS={dashboard:vDashboard,tasks:vTasks,appts:vAppts,leads:vLeads,lead:vLea
   placements:vPlacements,placement:vPlacement,approvals:vApprovals,notes:vNotes,reports:vReports,
   audit:vAudit,guide:vGuide};
 
+var PEEK={type:null,id:null,tab:'details'};
+A.peek=function(type,id,tab){PEEK={type:type,id:id,tab:tab||'details'};renderPeek();};
+A.peekClose=function(){PEEK={type:null,id:null,tab:'details'};renderPeek();};
+function renderPeek(){
+  var root=document.getElementById('peek-root');
+  if(!root)return;
+  if(!PEEK.id){root.innerHTML='';return;}
+  var body='',tabs=[],name='',sub='',type=PEEK.type;
+  if(type==='candidate'){
+    var c=byId(DB.candidates,PEEK.id);
+    if(!c){root.innerHTML='';return;}
+    name=c.name;sub=c.occupation+' \u00b7 '+c.location;
+    var subs=candSubs(c.id),notes=notesFor('candidateId',c.id);
+    tabs=[{k:'details',t:'Details'},{k:'notes',t:'Notes',n:notes.length},
+      {k:'cv',t:'Resume'},{k:'subs',t:'Submissions',n:subs.length}];
+    if(PEEK.tab==='details'){
+      body=detailRows([['Status',c.status],['Occupation',c.occupation],['Location',c.location],
+        ['Availability',c.availability],['Desired Rate',money(c.desiredRate)+' /hr'],
+        ['Preference',c.employmentPref],['Source',c.source],['Owner',c.owner],
+        ['Mobile Phone',c.phone],['Email 1','<span class="lnk">'+esc(c.email)+'</span>',1],
+        ['Primary Skills',(c.skills||[]).map(function(x){
+          return '<span class="tag">'+esc(x)+'</span>';}).join('')||'\u2014',1],
+        ['CV',c.cv?esc(c.cvName||'on file'):'none on file']]);
+    } else if(PEEK.tab==='notes'){
+      body='<div style="padding:12px">'+noteList(notes,'Nothing logged against this candidate.')+'</div>';
+    } else if(PEEK.tab==='cv'){
+      body=c.cv
+        ?'<pre style="margin:0;padding:12px;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px;line-height:1.55">'+esc(c.cv)+'</pre>'
+        :'<div class="empty" style="padding:22px"><b>No CV on file</b>Without CV text this candidate cannot be found by boolean search.</div>';
+    } else {
+      body=subs.length?'<table><tbody>'+subs.map(function(x){
+        var j=byId(DB.jobs,x.jobId);
+        return '<tr><td><span class="lnk" data-go="job" data-id="'+x.jobId+'">'+esc(jobName(x.jobId))+
+          '</span><div class="muted" style="font-size:11.5px">'+esc(coName(j?j.companyId:''))+'</div></td>'+
+          '<td>'+subPill(x.status)+'</td></tr>';
+      }).join('')+'</tbody></table>'
+      :'<div class="empty" style="padding:22px"><b>Not on any pipeline</b></div>';
+    }
+  } else if(type==='job'){
+    var j2=byId(DB.jobs,PEEK.id);
+    if(!j2){root.innerHTML='';return;}
+    name=j2.title;sub=coName(j2.companyId)+' \u00b7 '+j2.location;
+    var js=jobSubs(j2.id),jn=notesFor('jobId',j2.id);
+    tabs=[{k:'details',t:'Details'},{k:'notes',t:'Notes',n:jn.length},{k:'subs',t:'Pipeline',n:js.length}];
+    if(PEEK.tab==='details'){
+      body=detailRows([['Status',j2.status],['Type',j2.type],
+        ['Openings',j2.filled+' of '+j2.openings+' filled'],['Location',j2.location],
+        ['Contact',ctName(j2.contactId)],['Pay Rate',money(j2.payRate)+' /hr'],
+        ['Bill Rate',money(j2.billRate)+' /hr'],['Gross Margin',margin(j2.payRate,j2.billRate)+'%'],
+        ['Owner',j2.owner],['Date Added',fmtD(j2.added)],['Description',esc(j2.description),1]]);
+    } else if(PEEK.tab==='notes'){
+      body='<div style="padding:12px">'+noteList(jn,'No client conversations logged.')+'</div>';
+    } else {
+      body=js.length?'<table><tbody>'+js.map(function(x){
+        return '<tr><td><span class="lnk" data-go="candidate" data-id="'+x.candidateId+'">'+
+          esc(candName(x.candidateId))+'</span></td><td>'+subPill(x.status)+'</td></tr>';
+      }).join('')+'</tbody></table>'
+      :'<div class="empty" style="padding:22px"><b>Nothing on this pipeline yet</b></div>';
+    }
+  } else if(type==='company'){
+    var co=byId(DB.companies,PEEK.id);
+    if(!co){root.innerHTML='';return;}
+    name=co.name;sub=co.category+' \u00b7 '+co.status;
+    var cts=coContacts(co.id),cjs=coJobs(co.id),cn=notesFor('companyId',co.id);
+    tabs=[{k:'details',t:'Details'},{k:'contacts',t:'Contacts',n:cts.length},
+      {k:'subs',t:'Job Orders',n:cjs.length},{k:'notes',t:'Notes',n:cn.length}];
+    if(PEEK.tab==='details'){
+      body=detailRows([['Status',co.status],['Category',co.category],['Owner',co.owner],
+        ['Employees',co.employees],['Client Since',fmtD(co.since)],
+        ['Live Job Orders',String(cjs.filter(function(x){return openJobs().indexOf(x)>=0;}).length)]]);
+    } else if(PEEK.tab==='contacts'){
+      body=cts.length?'<table><tbody>'+cts.map(function(x){
+        return '<tr><td><span class="lnk" data-go="contact" data-id="'+x.id+'">'+esc(x.name)+
+          '</span><div class="muted" style="font-size:11.5px">'+esc(x.title)+'</div></td></tr>';
+      }).join('')+'</tbody></table>':'<div class="empty" style="padding:22px"><b>No contacts</b></div>';
+    } else if(PEEK.tab==='subs'){
+      body=cjs.length?'<table><tbody>'+cjs.map(function(x){
+        return '<tr><td><span class="lnk" data-go="job" data-id="'+x.id+'">'+esc(x.title)+
+          '</span></td><td>'+joPill(x)+'</td></tr>';
+      }).join('')+'</tbody></table>':'<div class="empty" style="padding:22px"><b>No job orders</b></div>';
+    } else {
+      body='<div style="padding:12px">'+noteList(cn,'Nothing logged.')+'</div>';
+    }
+  } else { root.innerHTML=''; return; }
+  root.innerHTML='<div class="peek" role="dialog" aria-label="Record preview">'+
+    '<div class="peek-h"><span class="ricon">'+(REC_ICON[type]||'\u2630')+'</span>'+
+      '<div style="min-width:0;flex:1"><div class="nm">'+esc(name)+'</div><div class="sb">'+esc(sub)+'</div></div>'+
+      '<button data-act="peek-open" data-type="'+type+'" data-id="'+esc(PEEK.id)+'" class="btn sm" '+
+        'title="Open the full record">Open</button>'+
+      '<button class="x" data-act="peek-close" aria-label="Close the preview">\u00d7</button></div>'+
+    '<div class="peek-tabs">'+tabs.map(function(t){
+      return '<a data-act="peek-tab" data-tab="'+t.k+'" class="'+(PEEK.tab===t.k?'on':'')+'" '+
+        'role="button" tabindex="0">'+esc(t.t)+(t.n!=null?' <span class="ct">'+t.n+'</span>':'')+'</a>';
+    }).join('')+'</div><div class="peek-b">'+body+'</div></div>';
+  focusable(root);
+}
+
+var DRAG={id:null};
+function wireDrag(scope){
+  scope.querySelectorAll('[data-sub][draggable]').forEach(function(el){
+    el.addEventListener('dragstart',function(e){
+      DRAG.id=el.getAttribute('data-sub');
+      el.classList.add('dragging');
+      if(e.dataTransfer){
+        try{e.dataTransfer.setData('text/plain',DRAG.id);}catch(x){}
+        e.dataTransfer.effectAllowed='move';
+      }
+    });
+    el.addEventListener('dragend',function(){
+      DRAG.id=null;el.classList.remove('dragging');
+      scope.querySelectorAll('.rung-b.over').forEach(function(z){z.classList.remove('over');});
+    });
+  });
+  scope.querySelectorAll('[data-drop]').forEach(function(zone){
+    zone.addEventListener('dragover',function(e){
+      e.preventDefault();
+      if(e.dataTransfer)e.dataTransfer.dropEffect='move';
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave',function(){zone.classList.remove('over');});
+    zone.addEventListener('drop',function(e){
+      e.preventDefault();
+      zone.classList.remove('over');
+      var id=DRAG.id||(e.dataTransfer?e.dataTransfer.getData('text/plain'):null);
+      DRAG.id=null;
+      if(id)A.dropSub(id,zone.getAttribute('data-drop'));
+    });
+  });
+}
+A.dropSub=function(subId,targetStatus){
+  var sub=byId(DB.subs,subId);
+  if(!sub){toast('That submission no longer exists','no');return;}
+  var job=byId(DB.jobs,sub.jobId);
+  if(job&&['Closed','Cancelled'].indexOf(job.status)>=0){
+    toast('The job order is '+job.status.toLowerCase()+', so its submissions are read only','no');return;
+  }
+  var from=pIx(sub.status),to=pIx(targetStatus);
+  if(to<0){toast('That is not a pipeline status','no');return;}
+  if(to===from){return;}
+  if(to<from){
+    openInfo('Statuses do not move backwards',
+      candName(sub.candidateId)+' is at '+sub.status+'. Dragging back to '+targetStatus+
+      ' would rewrite what has already happened. If the submission is finished, close it with a reason instead.',
+      '','warn');
+    return;
+  }
+  if(to>from+1){
+    openInfo('One status at a time',
+      'You are trying to move '+candName(sub.candidateId)+' from '+sub.status+' straight to '+
+      targetStatus+', skipping '+(to-from-1)+' step'+((to-from-1)>1?'s':'')+
+      '. Each stage asks for something the next one depends on, so move it one column at a time.',
+      '<p style="margin:0;font-size:13px">Next step: <b>'+esc(PIPE_K[from+1])+'</b></p>','warn');
+    return;
+  }
+  A.advance(subId);
+};
 function focusable(scope){
   scope.querySelectorAll('[data-act],[data-go]').forEach(function(el){
     var t=el.tagName;
@@ -4535,6 +4946,13 @@ function render(){
         'border-radius:9px;font-size:10px;font-weight:700;padding:0 5px;line-height:15px">'+nun+'</span>':'')+
       '</span>';
   }
+  var pm=document.getElementById('pmode');
+  if(pm){
+    pm.textContent=DB.permissive?'Rules: permissive':'Rules: strict';
+    pm.title=DB.permissive
+      ?'Permissive mode. Data-quality rules warn and can be overridden, which is how most live systems behave. Overrides are logged.'
+      :'Strict mode. Data-quality rules block the save. Good for teaching the discipline; not how production behaves.';
+  }
   var tm=document.getElementById('tmode');
   if(tm){
     tm.textContent=DB.training===false?'Training: off':'Training: on';
@@ -4542,7 +4960,7 @@ function render(){
       ?'Training mode is off. Turn it on for practice tasks and coaching notes.'
       :'Training mode is on. Turn it off to use this as a plain ATS.';
   }
-  renderTabs();renderCoach();renderRail();focusable(main);
+  renderTabs();renderCoach();renderRail();focusable(main);wireDrag(main);renderPeek();
   if(candFocus){
     var cf=document.getElementById('cand-filter');
     if(cf){cf.focus();try{cf.setSelectionRange(cf.value.length,cf.value.length);}catch(e){}}
@@ -4552,6 +4970,7 @@ function render(){
 }
 function go(view,id,tab){
   route={view:view,id:id||null,tab:tab||null};
+  PEEK={type:null,id:null,tab:'details'};
   document.getElementById('main').scrollTop=0;
   document.getElementById('ff-res').innerHTML='';
   render();
@@ -4604,10 +5023,28 @@ document.addEventListener('click',function(e){
         if(TOUR.active)setTimeout(tourPaint,0); return;
       case 'sort': A.sort(t.getAttribute('data-list'),t.getAttribute('data-key')); return;
       case 'mass-update': A.massUpdate(); return;
+      case 'mass-note': A.massNote(); return;
+      case 'peek': A.peek(t.getAttribute('data-type'),id); return;
+      case 'peek-tab': PEEK.tab=t.getAttribute('data-tab'); renderPeek(); return;
+      case 'peek-close': A.peekClose(); return;
+      case 'peek-open': { var pt=t.getAttribute('data-type'); A.peekClose(); go(pt,id); return; }
+      case 'sel': A.toggleSel(id); return;
+      case 'sel-none':
+        if(route.view==='search')searchSel={};else candSel={};
+        render(); return;
+      case 'sel-all':
+        A.selectAll(String(t.getAttribute('data-ids')||'').split(',').filter(Boolean),
+          t.getAttribute('data-on')==='1');
+        return;
       case 'job-search': A.jobSearch(id); return;
       case 'match-job': A.matchJob(id); return;
       case 'addnew': A.addNew(); return;
       case 'notifs': A.notifs(); return;
+      case 'permissive':
+        DB.permissive=!DB.permissive; Store.save(true);
+        toast(DB.permissive?'Permissive mode — rules warn and can be overridden'
+          :'Strict mode — rules block the save',DB.permissive?'':'ok');
+        render(); return;
       case 'training':
         DB.training=(DB.training===false);
         if(DB.training===false)coachMini=true;
@@ -4663,7 +5100,8 @@ document.addEventListener('click',function(e){
       case 'mass-tearsheet': A.massTearsheet(); return;
       case 'mass-pipeline': A.massPipeline(); return;
       case 'cand-page': candPage=Number(id)||1; render(); return;
-      case 'cand-clear': candFilter=''; candCat='All'; candStatus='All'; candCV='All'; candPage=1; render(); return;
+      case 'cand-clear': candFilter=''; candCat='All'; candStatus='All'; candCV='All'; candPage=1;
+        candSel={}; render(); return;
       case 'db-save': Store.save(true); toast(Store.available?'Saved':'No local database available',Store.available?'ok':'no'); return;
       case 'db-export': A.dbExport(); return;
       case 'db-import': A.dbImport(); return;
@@ -4696,6 +5134,7 @@ document.addEventListener('click',function(e){
   }
 });
 document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&PEEK.id){A.peekClose();return;}
   if(e.key==='Escape'&&document.querySelector('#ff-res').innerHTML){
     document.querySelector('#ff-res').innerHTML='';return;}
   if(e.key!=='Enter'&&e.key!==' ')return;
