@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recruitment ATS — practice environment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <div class="sandbox-mark">
+    <b>Practice environment.</b> Invented records, saved only in this browser. Not connected to any live system.
+    <span class="sp"></span>
+    <button class="btn ghost sm" data-act="session">Session summary</button>
+    <button class="btn ghost sm" data-act="reset">Reset all data</button>
+  </div>
+
+  <div class="topbar">
+    <div class="appname">Recruit<span>practice build</span></div>
+    <div class="ff">
+      <input id="ff" type="text" placeholder="Find — name, company, job order" autocomplete="off" aria-label="Find">
+      <div id="ff-res"></div>
+    </div>
+    <button class="pillbtn" data-act="addnew" aria-label="Add a new record">
+      <span class="circ"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></span>Add</button>
+    <span class="sp"></span>
+    <div class="tbar-r">
+      <span id="bell-root"></span>
+      <a data-act="training" id="tmode">Training</a>
+      <a data-go="guide">Help</a>
+      <span class="who">A. Trainee</span>
+      <span class="avatar">AT</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <nav class="side" id="rail"></nav>
+    <main class="main" id="main"></main>
+    <aside class="coach" id="coach"></aside>
+    <div id="fab-root"></div>
+<div id="fly-root"></div>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+<div id="tour-root"></div>
+<div id="modal-root"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
