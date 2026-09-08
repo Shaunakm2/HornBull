@@ -455,7 +455,7 @@ function seed(){
   var db={leads:[],opps:[],companies:[],contacts:[],candidates:[],jobs:[],subs:[],
     appts:[],placements:[],times:[],notes:[],tasks:[],tearsheets:[],savedSearches:[],
     notifs:[],training:true,permissive:true,blockTimeOnOnboarding:true,parserOverwritePrevention:false,
-    config:defaultConfig(),audit:[],quiz:null,assess:null,tourSeen:false};
+    uiMode:'redesign',config:defaultConfig(),audit:[],quiz:null,assess:null,tourSeen:false};
 
   function co(name,cat,owner,status,since){
     var c={id:uid('CL'),name:name,category:cat,owner:owner,status:status,since:since,mine:false,
@@ -741,6 +741,9 @@ A.actions=function(type,id){
   if(type==='candidate'){
     var c=byId(DB.candidates,id);
     items=[['Add to a pipeline','pipeline-add',id,'data-cand'],
+      ['Add a Task','task-for',id],
+      ['Schedule an Appointment','appt-for',id],
+      ['Send the resume to a contact','send-resume',id],
       [c&&c.cv?'Replace CV':'Upload CV','upload-cv',id],
       ['Email this candidate','email-cand',id],
       ['Add to a Tearsheet','tearsheet-add',id],
@@ -749,6 +752,8 @@ A.actions=function(type,id){
   } else if(type==='job'){
     var j=byId(DB.jobs,id);
     items=[['Add a candidate to the pipeline','pipeline-add',id],
+      ['Add a Task','task-for-job',id],
+      ['Schedule an Appointment','appt-for-job',id],
       ['Create a new candidate','add-candidate',id],
       ['Find candidates','match-job',id],
       [j&&j.published?'Unpublish from the careers site':'Publish to the careers site','publish',id],
@@ -799,6 +804,11 @@ A.actions=function(type,id){
         'add-contact':function(){A.addContact(rid);},'add-opp':function(){A.addOpp(rid);},
         'edit-company':function(){A.editCompany(rid);},'time-add':function(){A.addTime(rid);},
         'email-cand':function(){A.email({to:'candidate',candidateId:rid});},
+        'task-for':function(){A.addTask({candidateId:rid});},
+        'task-for-job':function(){A.addTask({jobId:rid});},
+        'appt-for':function(){A.addAppointment({candidateId:rid});},
+        'appt-for-job':function(){A.addAppointment({jobId:rid});},
+        'send-resume':function(){A.sendResume(rid);},
         'email-client':function(){A.email({to:'contact',jobId:rid});},
         'approve-pl':function(){A.approvePlacement(rid);},'edit-placement':function(){A.editPlacement(rid);}
       }[a]||function(){})();
@@ -1550,6 +1560,60 @@ A.addNote=function(pre){
     }});
 };
 
+A.addAppointment=function(pre){
+  pre=pre||{};
+  var cands=DB.candidates.map(function(c){return {v:c.id,t:c.name};});
+  var jobs=DB.jobs.map(function(j){return {v:j.id,t:j.title+' \u00b7 '+coName(j.companyId)};});
+  openForm({title:'New Appointment',
+    intro:'An appointment on the record is what makes an interview real. One that lives only in your inbox is how candidates get missed.',
+    fields:[
+      {k:'subject',label:'Subject',type:'text',required:true,
+        value:pre.candidateId?'Call with '+candName(pre.candidateId):''},
+      {k:'type',label:'Type',type:'select',required:true,
+        options:['Interview','Meeting','Call','Other']},
+      {k:'date',label:'Date',type:'date',required:true,value:iso(dOff(2))},
+      {k:'time',label:'Start time',type:'time',required:true,value:'10:00'},
+      {k:'duration',label:'Duration in minutes',type:'number',required:true,minNum:15,value:45},
+      {k:'location',label:'Format or location',type:'select',required:true,
+        options:['On site','Video','Phone']},
+      {k:'attendees',label:'Attendees',type:'text',required:true,value:'A. Trainee'},
+      {k:'candidateId',label:'Candidate',type:'select',value:pre.candidateId||'',
+        options:[{v:'',t:'\u2014 none \u2014'}].concat(cands)},
+      {k:'jobId',label:'Job order',type:'select',value:pre.jobId||'',
+        options:[{v:'',t:'\u2014 none \u2014'}].concat(jobs)}
+    ],
+    validate:function(v){
+      var e={};
+      if(v.date&&new Date(v.date+'T00:00')<new Date(iso(TODAY)+'T00:00'))
+        e.date='That date has passed.';
+      if(!v.candidateId&&!v.jobId)
+        e.candidateId='Link the appointment to a candidate or a job order, or nobody will find it.';
+      return e;
+    },
+    submit:'Save Appointment',
+    onSubmit:function(v){
+      var a={id:uid('AP'),subject:v.subject,type:v.type,
+        at:new Date(v.date+'T'+v.time).toISOString(),duration:Number(v.duration),
+        location:v.location,attendees:v.attendees,
+        jobId:v.jobId||null,candidateId:v.candidateId||null,mine:true};
+      DB.appts.push(a);
+      log('Scheduled an appointment',v.subject+' \u00b7 '+fmtDT(a.at));
+      notify('Appointment: '+v.subject+' on '+fmtD(a.at),
+        v.candidateId?'candidate':'job',v.candidateId||v.jobId);
+      toast('Appointment saved','ok');render();
+    }});
+};
+A.sendResume=function(candId){
+  var c=byId(DB.candidates,candId);
+  if(!c){return;}
+  if(!c.cv){
+    openInfo('No resume to send',c.name+' has no resume on file. Attach one on the Files tab first.','','warn');
+    return;
+  }
+  var subs=candSubs(candId).filter(function(s){return s.sentTo;});
+  var jobId=subs.length?subs[0].jobId:(DB.jobs[0]||{}).id;
+  A.email({to:'contact',candidateId:candId,jobId:jobId,template:'sendout'});
+};
 A.addTearsheet=function(){
   openForm({title:'Add Tearsheet',
     intro:'A tearsheet is a saved list of candidates you can reuse and mass-contact. Built once against a recurring requirement, it removes the repeat search entirely.',
@@ -1592,19 +1656,27 @@ A.addToTearsheet=function(candidateId){
     }});
 };
 
-A.addTask=function(){
+A.addTask=function(pre){
+  pre=pre||{};
   openForm({title:'Add Task',
     intro:'A task is a commitment with a date and an owner. Anything you promised a client or candidate belongs here.',
     fields:[
       {k:'subject',label:'Subject',type:'text',required:true},
       {k:'due',label:'Due date',type:'date',required:true,value:iso(dOff(1))},
       {k:'priority',label:'Priority',type:'select',required:true,options:['High','Medium','Low']},
-      {k:'entity',label:'Related record',type:'text',required:false,hint:'Optional record reference, for example JO-1001.'}
+      {k:'entity',label:'Related record',type:'text',required:false,
+        value:pre.candidateId||pre.jobId||'',
+        hint:'A task can hang off a candidate, contact, company, job order or placement.'},
+      {k:'owner',label:'Assigned to',type:'select',required:true,
+        options:['A. Trainee','A. Rao','M. Silva'],
+        hint:'Tasks can be created for yourself or assigned to a teammate.'}
     ],
     submit:'Save Task',
     onSubmit:function(v){
-      DB.tasks.push({id:uid('TK'),subject:v.subject,due:v.due,priority:v.priority,owner:'A. Trainee',
-        entity:v.entity||'',done:false,mine:true});
+      DB.tasks.push({id:uid('TK'),subject:v.subject,due:v.due,priority:v.priority,
+        owner:v.owner||'A. Trainee',entity:v.entity||'',done:false,mine:true});
+      if(v.owner&&v.owner!=='A. Trainee')
+        notify('Task assigned to '+v.owner+': '+v.subject,'tasks',null);
       log('Added Task',v.subject);
       toast('Task saved','ok');render();
     }});
@@ -3008,6 +3080,16 @@ function panelIcons(){
     '<button data-act="refresh" title="Refresh" aria-label="Refresh">\u21BB</button>'+
     '<button data-act="noop" title="Collapse" aria-label="Collapse">\u2297</button></span>';
 }
+/* The record content sits alongside a Details card on the right, which is the documented
+   pattern and reads very differently from a full-width form. */
+function withDetails(mainHtml,rows,title){
+  return '<div class="recbody"><div class="reccols">'+mainHtml+'</div>'+
+    '<aside class="detailscard"><div class="dc-h">'+esc(title||'Details')+'</div>'+
+    '<div class="dc-b">'+rows.map(function(r){
+      return '<div class="dc-row"><div class="k">'+esc(r[0])+'</div>'+
+        '<div class="v">'+(r[2]?r[1]:esc(r[1]==null||r[1]===''?'\u2014':r[1]))+'</div></div>';
+    }).join('')+'</div></aside></div>';
+}
 function detailRows(rows){
   return '<table class="detail"><tbody>'+rows.map(function(r){
     return '<tr><th>'+esc(r[0])+'</th><td>'+(r[2]?r[1]:esc(r[1]))+'</td></tr>';
@@ -3494,10 +3576,11 @@ function vJob(){
 
   var body='';
   if(tab==='pipeline'){
-    body=(DB.training!==false
+    body=funnelBar(subs)+
+      (DB.training!==false
       ?'<p class="sub" style="margin:0 0 10px">Drag a card to the next column, or click it to open the submission. Statuses move one step at a time.</p>':'')+
       '<div class="ladder">'+PIPE.map(function(st){
-      var here=live.filter(function(s){return s.status===st.k;});
+      var here=live.filter(function(s){return s.status===st.k&&funnelKeeps(s);});
       return '<div class="rung"><div class="rung-h"><div class="t"><b style="background:'+st.c+'"></b>'+esc(st.k)+'</div>'+
         '<div class="c">'+here.length+' here \u00b7 '+f[st.k]+' reached</div></div>'+
         '<div class="rung-b" data-drop="'+esc(st.k)+'">'+
@@ -3521,20 +3604,20 @@ function vJob(){
           '<td class="muted">'+esc(ago(s.modified))+'</td></tr>';
       }).join('')+'</tbody></table></div></div>':'');
   } else if(tab==='overview'){
-    body='<div class="grid g2" style="align-items:start"><div>'+
-      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Job Information</h4>'+panelIcons()+'</div>'+
+    body=withDetails(
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Job Details</h4>'+
+        panelIcons()+'</div>'+
       detailRows([['Job Title',j.title],
-        ['Company','<span class="lnk" data-go="company" data-id="'+j.companyId+'">'+esc(coName(j.companyId))+'</span>',1],
-        ['Contact','<span class="lnk" data-go="contact" data-id="'+j.contactId+'">'+esc(ctName(j.contactId))+'</span>',1],
-        ['Location',j.location],['Category',j.category],['Status',j.status],
-        ['Owner',j.owner],['Date Added',fmtD(j.added)]])+'</div>'+
-      '<div class="card"><div class="card-h"><h4>Employment</h4>'+panelIcons()+'</div>'+
-      detailRows([['Job Type',j.type],
+        ['Company','<span class="lnk" data-go="company" data-id="'+j.companyId+'">'+
+          esc(coName(j.companyId))+'</span>',1],
+        ['Contact','<span class="lnk" data-go="contact" data-id="'+j.contactId+'">'+
+          esc(ctName(j.contactId))+'</span>',1],
+        ['Location',j.location],['Job Type',j.type],
         ['Employment Type',j.employmentType||(j.type==='Direct Hire'?'Permanent':'W2')],
         ['Openings',j.openings+' ('+j.filled+' filled)'],
-        ['Anticipated Start',fmtD(j.startDate)],['Duration',j.duration],
-        ['Published',j.published?'Yes — visible on the careers site':'No']])+'</div></div>'+
-      '<div><div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Compensation</h4>'+panelIcons()+'</div>'+
+        ['Anticipated Start',fmtD(j.startDate)],['Duration',j.duration]])+'</div>'+
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Compensation</h4>'+
+        panelIcons()+'</div>'+
       detailRows(j.type==='Direct Hire'
         ?[['Salary',j.salary?money(j.salary):'not recorded'],
           ['Flat Fee',j.flatFee?money(j.flatFee):'not recorded'],
@@ -3543,12 +3626,22 @@ function vJob(){
         :[['Pay Rate',money(j.payRate)+' /hr'],['Bill Rate',money(j.billRate)+' /hr'],
           ['Mark-up Value',money(j.billRate-j.payRate)+' /hr'],
           ['Mark-up %',markup(j.payRate,j.billRate)+'%'],
-          ['Gross Margin',marginPill(j.payRate,j.billRate)+' '+esc(marginBand(j.payRate,j.billRate).t),1]])+
-      '</div>'+
-      '<div class="card"><div class="card-h"><h4>Job Description</h4>'+panelIcons()+'</div>'+
-      '<div class="card-b"><p style="margin:0;font-size:13px;max-width:64ch">'+esc(j.description)+'</p>'+
-      (j.closedReason?'<p class="muted" style="font-size:12px;margin:10px 0 0">Status reason: '+
-        esc(j.closedReason)+'</p>':'')+'</div></div></div></div>';
+          ['Gross Margin',marginPill(j.payRate,j.billRate)+' '+
+            esc(marginBand(j.payRate,j.billRate).t),1]])+'</div>'+
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Job Description</h4>'+
+        panelIcons()+'</div><div class="card-b">'+
+        '<p style="margin:0;font-size:13px;max-width:64ch">'+esc(j.description)+'</p>'+
+        (j.closedReason?'<p class="muted" style="font-size:12px;margin:10px 0 0">Status reason: '+
+          esc(j.closedReason)+'</p>':'')+'</div></div>'+
+      '<div class="card"><div class="card-h"><h4>Recent Activity</h4>'+panelIcons()+'</div>'+
+        '<div class="card-b">'+noteList(notes,'Nothing logged against this requirement.')+'</div></div>',
+      [['ID',j.id],['Status',j.status],['Owner',j.owner],
+       ['Assigned Users',(j.assignedUsers||[j.owner]).join(', ')],
+       ['Category',j.category],['Openings',String(j.openings)],
+       ['Filled',String(j.filled)],
+       ['Sendouts',String(subs.filter(function(x){return !!x.sendoutAt;}).length)],
+       ['Submitted',String(subs.length)],
+       ['Published',j.published?'Yes':'No'],['Date Added',fmtD(j.added)]]);
   } else if(tab==='files'){
     body='<div class="card"><div class="card-h"><h4>Files</h4>'+panelIcons()+'</div>'+
       '<div class="empty" style="padding:22px"><b>No files on this job order</b>'+
@@ -3610,31 +3703,42 @@ function vCandidate(){
   var body='';
   if(tab==='overview'){
     var nm=String(c.name).split(' ');
-    body='<div class="grid g2" style="align-items:start"><div>'+
-      '<div class="card"><div class="card-h"><h4>Details</h4>'+panelIcons()+'</div>'+
+    body=withDetails(
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Contact Information</h4>'+
+        panelIcons()+'</div>'+
       detailRows([
-        ['ID',c.id],['First Name',nm[0]||''],['Last Name',nm.slice(1).join(' ')],
-        ['Occupation',c.occupation],
-        ['Email 1','<span class="lnk">'+esc(c.email)+'</span>',1],
-        ['Mobile Phone',c.phone],['Address',c.location],
-        ['Status',c.status],['Category',c.category],
-        ['Date Available',c.availability],['Desired Rate',money(c.desiredRate)+' /hr'],
-        ['Employment Preference',c.employmentPref],['Owner',c.owner],
-        ['Primary Skills',(c.skills||[]).length?c.skills.map(function(x){
-          return '<span class="tag">'+esc(x)+'</span>';}).join(''):'<span class="muted">none recorded</span>',1],
-        ['Date Added',fmtD(c.added)],
-        ['Date Last Modified',c.edited?fmtD(c.edited):fmtD(c.added)]
-      ])+'</div></div>'+
-      '<div><div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Recent Notes</h4>'+panelIcons()+'</div><div class="card-b">'+
+        ['Email 1','<span class="lnk">'+esc(c.email||'')+'</span>',1],
+        ['Email 2',c.email2||''],['Mobile Phone',c.phone||''],
+        ['Phone 2',c.phone2||''],['Phone 3',c.phone3||''],
+        ['Address',c.location||'']])+'</div>'+
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Recent Notes</h4>'+
+        panelIcons()+'</div><div class="card-b">'+
       (notes.length?noteList(notes,''):'<div class="empty" style="padding:16px 8px">'+
         '<b>You do not have any notes on this record yet.</b>'+
-        '<div style="margin-top:10px"><button class="btn" data-act="note" data-candidateid="'+c.id+'">ADD NOTE +</button></div></div>')+
-      '</div></div>'+
+        '<div style="margin-top:10px"><button class="btn" data-act="note" data-candidateid="'+c.id+
+        '">ADD NOTE +</button></div></div>')+'</div></div>'+
+      '<div class="card" style="margin-bottom:13px"><div class="card-h"><h4>Resume</h4>'+
+        panelIcons()+'</div><div class="card-b">'+
+      (c.cv?'<pre style="margin:0;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px;'+
+        'line-height:1.5;max-height:190px;overflow:auto">'+esc(c.cv.slice(0,900))+
+        (c.cv.length>900?'\n\u2026':'')+'</pre>'
+        :'<div class="muted" style="font-size:13px">No resume on file.</div>')+'</div></div>'+
       '<div class="card"><div class="card-h"><h4>Open Tasks</h4>'+panelIcons()+'</div><div class="card-b">'+
       (function(){
         var mine=DB.tasks.filter(function(t){return !t.done&&t.entity===c.id;});
         return mine.length?taskTable(mine):'<div class="muted" style="font-size:13px">No open tasks on this record.</div>';
-      })()+'</div></div></div></div>';
+      })()+'</div></div>',
+      [['ID',c.id],['First Name',c.firstName||nm[0]||''],
+       ['Last Name',c.lastName||nm.slice(1).join(' ')],
+       ['Occupation',c.occupation],['Status',c.status],['Category',c.category],
+       ['Source',c.source],['Owner',c.owner],
+       ['Date Available',c.availability],['Desired Rate',money(c.desiredRate)+' /hr'],
+       ['Employment Preference',c.employmentPref],
+       ['Primary Skills',(c.skills||[]).map(function(x){
+         return '<span class="tag">'+esc(x)+'</span>';}).join('')||'\u2014',1],
+       ['Resume',c.cv?esc(c.cvName||'on file'):'none on file'],
+       ['Date Added',fmtD(c.added)],
+       ['Date Last Modified',c.edited?fmtD(c.edited):fmtD(c.added)]]);
   } else if(tab==='activity'){
     body='<div class="card"><div class="card-h"><h4>Activity</h4>'+panelIcons()+'</div><div class="card-b">'+
       activityList(activityFor(c.id),'Nothing has happened on this record yet.')+'</div></div>';
@@ -4440,48 +4544,94 @@ var PIN_FLAG={
   placements:function(){return pendingPlacements().length;},
   pipeline:function(){return staleSubs().length;}
 };
+function navGroupOf(v){
+  var g='Records';
+  if(['dashboard','tasks','appts'].indexOf(v)>=0)g='My desk';
+  else if(['leads','opps'].indexOf(v)>=0)g='Sales';
+  else if(['pipeline','search','tearsheets'].indexOf(v)>=0)g='Recruiting';
+  else if(['placements','approvals'].indexOf(v)>=0)g='Delivery';
+  else if(['reports','audit','notes','data','config','guide'].indexOf(v)>=0)g='Tools';
+  return g;
+}
+function navItems(){
+  var byV={};
+  MENU.forEach(function(i){if(i.v)byV[i.v]=i;});
+  var order=(DB.config&&DB.config.navOrder)||[];
+  var out=[];
+  order.forEach(function(v){if(byV[v]){out.push(byV[v]);delete byV[v];}});
+  Object.keys(byV).forEach(function(v){out.push(byV[v]);});
+  return out;
+}
 function renderRail(){
   var el=document.getElementById('rail');
-  el.className='side';
-  el.setAttribute('aria-label','Open records and lists');
   el.className='side'+(railMini?' mini':'');
-  var out='<button class="side-menu" data-act="menu" aria-label="Open the main menu" '+
-    'aria-expanded="'+(!!menuOpen)+'"><span class="bars"><i></i><i></i><i></i></span>'+
-    (railMini?'':'<span class="lbl">Menu</span>')+'</button>'+
-    '<div class="side-pins">';
-  PINNED.forEach(function(l){
-    var on=route.view===l.v||RAIL_ALIAS[route.view]===l.v;
-    var fl=PIN_FLAG[l.v]?PIN_FLAG[l.v]():0;
-    var ct=PIN_COUNT[l.v]?PIN_COUNT[l.v]():null;
-    out+='<a class="side-pin'+(on?' on':'')+'" data-go="'+l.v+'" role="button" tabindex="0" '+
-      'title="'+esc(l.t)+(fl?' \u2014 '+fl+' need attention':'')+'" aria-current="'+(on?'page':'false')+'">'+
-      '<span class="ic">'+icon(l.v)+(railMini&&fl?'<span class="dot"></span>':'')+'</span>'+
-      (railMini?'':'<span class="lbl">'+esc(l.t)+'</span>'+
-        (fl?'<span class="fl">'+fl+'</span>':(ct!=null?'<span class="ct">'+ct+'</span>':'')))+
-      '</a>';
+  var legacy=DB.uiMode==='legacy';
+  el.setAttribute('aria-label',legacy?'Open records and lists':'Navigation');
+
+  if(legacy){
+    /* The legacy interface: navigation hangs off a Menu flyout, and the left column carries the
+       records the user has open. This is what the reference screenshots show. */
+    var out='<button class="side-menu" data-act="menu" aria-label="Open the main menu" '+
+      'aria-expanded="'+(!!menuOpen)+'"><span class="bars"><i></i><i></i><i></i></span>'+
+      (railMini?'':'<span class="lbl">Menu</span>')+'</button><div class="side-pins">';
+    PINNED.forEach(function(l){
+      var on=route.view===l.v||RAIL_ALIAS[route.view]===l.v;
+      var fl=PIN_FLAG[l.v]?PIN_FLAG[l.v]():0;
+      var ct=PIN_COUNT[l.v]?PIN_COUNT[l.v]():null;
+      out+='<a class="side-pin'+(on?' on':'')+'" data-go="'+l.v+'" role="button" tabindex="0" '+
+        'title="'+esc(l.t)+'" aria-current="'+(on?'page':'false')+'">'+
+        '<span class="ic">'+icon(l.v)+(railMini&&fl?'<span class="dot"></span>':'')+'</span>'+
+        (railMini?'':'<span class="lbl">'+esc(l.t)+'</span>'+
+          (fl?'<span class="fl">'+fl+'</span>':(ct!=null?'<span class="ct">'+ct+'</span>':'')))+'</a>';
+    });
+    out+='</div><button class="side-collapse" data-act="rail">'+
+      (railMini?'\u203A':'\u2039 Collapse')+'</button><div class="side-tabs">'+
+      (openTabs.length&&!railMini?'<div class="side-grp">Open records</div>':'');
+    openTabs.forEach(function(t){
+      var on=route.id===t.id;
+      out+='<div class="side-tab'+(on?' on':'')+'" data-tabopen="'+esc(t.type)+'" data-id="'+esc(t.id)+
+        '" role="button" tabindex="0" title="'+esc((TAB_TYPE[t.type]||t.type)+' \u2014 '+t.label)+'">'+
+        '<span class="lbl">'+esc(t.label)+'</span>'+
+        '<span class="x" data-tabclose="'+esc(t.id)+'" role="button" tabindex="0" aria-label="Close tab">\u00d7</span></div>';
+    });
+    out+='</div><div class="side-drop" data-act="parse" role="button" tabindex="0">Drop to Parse<br>(or Click)</div>'+
+      '<div class="side-foot"><button data-act="closetabs">Close All Tabs</button></div>';
+    el.innerHTML=out;
+    return;
+  }
+
+  /* The redesigned interface: a permanent sidebar carrying all navigation, with Fast Find and
+     Preferences in it. Open records are not shown here, because that is not documented. */
+  var o='<div class="side-brand">'+(railMini?'R':'Recruit')+'</div><div class="side-pins">';
+  var lastG=null;
+  navItems().forEach(function(i){
+    var g=navGroupOf(i.v);
+    if(g!==lastG){
+      o+=railMini?'<div class="side-sep"></div>':'<div class="side-grp">'+esc(g)+'</div>';
+      lastG=g;
+    }
+    var on=route.view===i.v||RAIL_ALIAS[route.view]===i.v;
+    var fl=i.fl?i.fl():0,ct=i.ct?i.ct():null;
+    o+='<a class="side-pin'+(on?' on':'')+'" data-go="'+i.v+'" role="button" tabindex="0" '+
+      'title="'+esc(i.t)+(fl?' \u2014 '+fl+' need attention':'')+'" aria-current="'+(on?'page':'false')+'">'+
+      '<span class="ic">'+icon(i.v)+(railMini&&fl?'<span class="dot"></span>':'')+'</span>'+
+      (railMini?'':'<span class="lbl">'+esc(i.t)+'</span>'+
+        (fl?'<span class="fl">'+fl+'</span>':(ct!=null?'<span class="ct">'+ct+'</span>':'')))+'</a>';
   });
-  out+='</div><button class="side-collapse" data-act="rail" '+
-    'title="'+(railMini?'Show labels':'Collapse to icons')+'" '+
-    'aria-label="'+(railMini?'Show labels':'Collapse to icons')+'">'+
-    (railMini?'\u203A':'\u2039 Collapse')+'</button>'+
-    '<div class="side-tabs">'+
-    (openTabs.length&&!railMini?'<div class="side-grp">Open records</div>':'');
-  openTabs.forEach(function(t){
-    var on=route.id===t.id;
-    out+='<div class="side-tab'+(on?' on':'')+'" data-tabopen="'+esc(t.type)+'" data-id="'+esc(t.id)+
-      '" role="button" tabindex="0" title="'+esc((TAB_TYPE[t.type]||t.type)+' — '+t.label)+'">'+
-      '<span class="lbl">'+esc(t.label)+'</span>'+
-      '<span class="x" data-tabclose="'+esc(t.id)+'" role="button" tabindex="0" aria-label="Close tab">\u00d7</span></div>';
-  });
-  out+='</div>'+
-    '<div class="side-drop" data-act="parse" role="button" tabindex="0">Drop to Parse<br>(or Click)</div>'+
-    '<div class="side-foot"><button data-act="closetabs">Close All Tabs</button></div>';
-  el.innerHTML=out;
+  o+='</div><div class="side-sep"></div><div class="side-pins">'+
+    '<a class="side-pin" data-act="focus-find" role="button" tabindex="0" title="Fast Find">'+
+      '<span class="ic">'+icon('search')+'</span>'+(railMini?'':'<span class="lbl">Fast Find</span>')+'</a>'+
+    '<a class="side-pin" data-go="config" role="button" tabindex="0" title="Preferences">'+
+      '<span class="ic">'+icon('config')+'</span>'+(railMini?'':'<span class="lbl">Preferences</span>')+'</a>'+
+    '</div>'+
+    '<button class="side-collapse" data-act="rail" title="'+(railMini?'Show labels':'Collapse')+'">'+
+      (railMini?'\u203A':'\u2039 Collapse')+'</button>';
+  el.innerHTML=o;
 }
 function renderMenu(){
   var root=document.getElementById('fly-root');
   if(!root)return;
-  if(!menuOpen){root.innerHTML='';return;}
+  if(DB.uiMode!=='legacy'||!menuOpen){root.innerHTML='';return;}
   var out='<div class="mfly-scrim" data-menuclose></div><nav class="mfly" aria-label="Main menu">'+
     '<div class="mfly-h"><span class="bars" style="display:flex;flex-direction:column;gap:3px">'+
     '<i style="display:block;width:13px;height:1.6px;background:#fff"></i>'+
@@ -5050,6 +5200,9 @@ function defaultConfig(){
       company:['name'],
       contact:['name','companyId']
     },
+    navOrder:['dashboard','candidates','contacts','companies','jobs','pipeline','placements',
+      'tasks','appts','tearsheets','search','leads','opps','approvals','notes','reports','audit',
+      'data','config','guide'],
     tabs:{
       candidate:['overview','activity','notes','subs','placements','files','resume','sheets','edit'],
       job:['overview','pipeline','appts','notes','placements','files','edit']
@@ -5168,6 +5321,39 @@ function vConfig(){
       'required still validates its own format, and still warns when left empty in permissive mode. '+
       'Turning something off removes the block, not the guidance.</p></div>'+
 
+    '<div class="sec"><h3>Interface</h3>'+
+      '<div class="card"><div class="card-b">'+
+      '<div class="kv"><dt>Current interface</dt><dd>'+
+        (DB.uiMode==='legacy'?'Legacy \u2014 top-bar navigation behind a Menu flyout, with open '+
+          'records listed in the left column':'Redesigned \u2014 permanent left sidebar carrying all '+
+          'navigation, with Fast Find and Preferences in it')+'</dd></div>'+
+      '<div class="btnrow" style="margin-top:11px">'+
+      '<button class="btn ghost" data-act="ui-mode">Switch to the '+
+        (DB.uiMode==='legacy'?'redesigned':'legacy')+' interface</button></div>'+
+      '<div class="callout warn" style="margin:12px 0 0">This switch is a feature of this sandbox, '+
+      'not of Bullhorn. The redesign is a phased, mandatory migration and there is no documented '+
+      'way for a user or administrator to move back. It is here so trainees can be shown whichever '+
+      'interface their own account is on.</div>'+
+      '<div class="callout" style="margin:10px 0 0">Open records appearing as tabs in the sidebar is '+
+      'part of the legacy layout only. The redesigned sidebar is documented as navigation, Fast Find '+
+      'and Preferences \u2014 nothing documents record tabs living there, so they are not shown.</div>'+
+      '</div></div></div>'+
+
+    '<div class="sec"><h3>Navigation order</h3>'+
+      '<div class="card"><div class="card-b">'+
+      '<p class="muted" style="font-size:12.5px;margin:0 0 10px;max-width:70ch">The redesigned '+
+      'sidebar can be reordered by the user, which is documented. This is that setting.</p>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:3px">'+
+      navItems().map(function(i,ix){
+        return '<div style="display:flex;gap:7px;align-items:center;font-size:12.5px">'+
+          '<span class="mono muted" style="width:18px">'+(ix+1)+'</span>'+
+          '<span style="flex:1">'+esc(i.t)+'</span>'+
+          '<button class="btn ghost sm" data-act="nav-up" data-id="'+i.v+'"'+(ix===0?' disabled':'')+
+            ' aria-label="Move up">\u2191</button>'+
+          '<button class="btn ghost sm" data-act="nav-dn" data-id="'+i.v+'" aria-label="Move down">\u2193</button>'+
+          '</div>';
+      }).join('')+'</div></div></div></div>'+
+
     '<div class="sec"><h3>Record tabs</h3>'+
       '<div class="grid g2">'+['candidate','job'].map(function(en){
         var order=cfg.tabs[en]||[];
@@ -5241,6 +5427,16 @@ A.cfgTabMove=function(entity,key,dir){
   if(j<0||j>=order.length)return;
   order.splice(i,1);order.splice(j,0,key);
   log('Reordered tabs',entity+': '+(TAB_LABEL[key]||key)+' to position '+(j+1));
+  Store.save(true);render();
+};
+A.navMove=function(v,dir){
+  var order=DB.config.navOrder||(DB.config.navOrder=[]);
+  var i=order.indexOf(v);
+  if(i<0){order.push(v);i=order.length-1;}
+  var j=i+dir;
+  if(j<0||j>=order.length)return;
+  order.splice(i,1);order.splice(j,0,v);
+  log('Reordered navigation',v+' to position '+(j+1));
   Store.save(true);render();
 };
 A.cfgReset=function(){
@@ -5317,6 +5513,35 @@ var VIEWS={dashboard:vDashboard,tasks:vTasks,appts:vAppts,leads:vLeads,lead:vLea
   placements:vPlacements,placement:vPlacement,approvals:vApprovals,notes:vNotes,reports:vReports,
   audit:vAudit,guide:vGuide};
 
+/* The Submissions tab is documented as a funnel: stage buckets with counts, each mapping to
+   a set of statuses that a tenant can extend. */
+var FUNNEL=[
+  {k:'all',t:'All'},
+  {k:'sub',t:'Submissions',has:['New Lead','Internal Submission','Client Submission']},
+  {k:'int',t:'Interviewing',has:['Interview Scheduled']},
+  {k:'con',t:'Confirmed',has:['Offer Extended','Placed']},
+  {k:'rej',t:'Rejected',fromClosed:true}
+];
+var jobFunnel='all';
+function funnelCount(subs,f){
+  if(f.k==='all')return subs.length;
+  if(f.fromClosed)return subs.filter(function(s){return PIPE_OUT.indexOf(s.status)>=0;}).length;
+  return subs.filter(function(s){return (f.has||[]).indexOf(s.status)>=0;}).length;
+}
+function funnelBar(subs){
+  return '<div class="funnel">'+FUNNEL.map(function(f){
+    return '<a class="fn'+(jobFunnel===f.k?' on':'')+'" data-act="funnel" data-id="'+f.k+
+      '" role="button" tabindex="0"><span class="t">'+esc(f.t)+'</span>'+
+      '<span class="n">'+funnelCount(subs,f)+'</span></a>';
+  }).join('')+'</div>';
+}
+function funnelKeeps(s){
+  if(jobFunnel==='all')return true;
+  var f=FUNNEL.filter(function(x){return x.k===jobFunnel;})[0];
+  if(!f)return true;
+  if(f.fromClosed)return PIPE_OUT.indexOf(s.status)>=0;
+  return (f.has||[]).indexOf(s.status)>=0;
+}
 var PEEK={type:null,id:null,tab:'details'};
 A.stageOpen=function(status){
   /* the documentation says clicking a reached workflow icon opens the relevant submission */
@@ -5573,7 +5798,22 @@ document.addEventListener('click',function(e){
     e.preventDefault();e.stopPropagation();
     switch(act){
       case 'rail': railMini=!railMini; DB.uiRail=railMini; renderRail(); Store.save(true); return;
-      case 'menu': menuOpen=!menuOpen; renderMenu(); renderRail(); return;
+      case 'menu':
+        if(DB.uiMode!=='legacy'){toast('The redesigned sidebar is the navigation','');return;}
+        menuOpen=!menuOpen; renderMenu(); renderRail(); return;
+      case 'focus-find': {
+        var ff=document.getElementById('ff');
+        if(ff){ff.focus();if(ff.select)ff.select();}
+        return;
+      }
+      case 'ui-mode':
+        DB.uiMode=(DB.uiMode==='legacy')?'redesign':'legacy';
+        menuOpen=false;
+        log('Switched interface',DB.uiMode==='legacy'?'legacy top-bar navigation':'redesigned sidebar');
+        toast(DB.uiMode==='legacy'?'Legacy interface':'Redesigned interface','');
+        Store.save(true);render();return;
+      case 'nav-up': A.navMove(id,-1); return;
+      case 'nav-dn': A.navMove(id,1); return;
       case 'rail': railMini=!railMini; DB.uiRail=railMini; Store.save(true); renderRail(); return;
       case 'closetabs': openTabs=[]; go('dashboard'); return;
       case 'refresh': toast('Refreshed',''); render(); return;
@@ -5615,6 +5855,7 @@ document.addEventListener('click',function(e){
       case 'peek-tab': PEEK.tab=t.getAttribute('data-tab'); renderPeek(); return;
       case 'peek-close': A.peekClose(); return;
       case 'peek-open': { var pt=t.getAttribute('data-type'); A.peekClose(); go(pt,id); return; }
+      case 'funnel': jobFunnel=id; render(); return;
       case 'stage-open': A.stageOpen(id); return;
       case 'sel': A.toggleSel(id); return;
       case 'sel-none':
