@@ -1015,7 +1015,14 @@ function timeToFill(){
 function markup(p,b){return p?Math.round((b-p)/p*100):0;}
 /* C1: margin bands. 20%+ normal, 10 to under 20 needs a manager, under 10 is refused. */
 var MARGIN_OK=20,MARGIN_FLOOR=10;
-function marginBand(pay,bill){
+function marginBand(pay,bill,rec){
+  /* A permanent placement has no hourly margin. It is judged on the fee against the salary. */
+  if(rec&&rec.perm){
+    var fp=rec.salary?(rec.flatFee/rec.salary*100):0;
+    if(fp<10)return {k:'block',m:fp,t:'a fee of under 10 per cent of salary'};
+    if(fp<15)return {k:'review',m:fp,t:'a fee between 10 and 15 per cent of salary, so it needs a manager'};
+    return {k:'ok',m:fp,t:'a fee at or above 15 per cent of salary'};
+  }
   var m=(bill&&pay)?((bill-pay)/bill*100):0;
   if(m<MARGIN_FLOOR)return {k:'block',m:m,t:'below the '+MARGIN_FLOOR+'% floor'};
   if(m<MARGIN_OK)return {k:'review',m:m,t:'between '+MARGIN_FLOOR+'% and '+MARGIN_OK+'%, so it needs a manager'};
@@ -1436,11 +1443,15 @@ A.addCandidate=function(jobId){
       {k:'skills',label:'Primary skills',type:'text',required:true,hint:'Comma separated. This is what you will search on later.'},
       {k:'source',label:'Source',type:'select',required:true,options:CD_SOURCES,
         hint:'Source is a reportable metric. Guessing corrupts it.'},
-      {k:'desiredRate',label:'Desired pay rate per hour',type:'number',required:true,minNum:1},
+      {k:'desiredRate',label:'Desired pay rate per hour',type:'number',minNum:1,
+        softRequired:'No rate expectation recorded. Left blank it is stored as no value rather '+
+          'than as zero, and the check that stops you submitting below expectation cannot fire.'},
       {k:'availability',label:'Availability',type:'select',required:true,options:['Immediate','1 week','2 weeks','4 weeks','Notice period']},
       {k:'employmentPref',label:'Employment preference',type:'select',required:true,options:JO_TYPE},
-      {k:'phone',label:'Phone',type:'text',required:true},
-      {k:'email',label:'Email',type:'text',required:true}
+      {k:'phone',label:'Phone',type:'text',
+        softRequired:'No phone number. You cannot screen someone you cannot reach.'},
+      {k:'email',label:'Email',type:'text',
+        softRequired:'No email address. Sendouts and confirmations have nowhere to go.'}
     ],
     validate:function(v){
       var e={};
@@ -1453,7 +1464,9 @@ A.addCandidate=function(jobId){
     onSubmit:function(v){
       var c={id:uid('CD'),name:v.name,occupation:v.occupation,status:v.status,category:v.category,
         location:v.location,skills:v.skills.split(',').map(function(s){return s.trim();}).filter(Boolean),
-        source:v.source,desiredRate:Number(v.desiredRate),availability:v.availability,
+        source:v.source||'',
+        desiredRate:(v.desiredRate===''||v.desiredRate==null)?null:Number(v.desiredRate),
+        availability:v.availability,
         employmentPref:v.employmentPref,relocate:false,owner:'A. Trainee',added:iso(TODAY),
         phone:v.phone,email:v.email,mine:true};
       DB.candidates.push(c);
@@ -1518,19 +1531,27 @@ function stepSpec(sub,next){
       if(cand.status==='New Lead')cand.status='Active';
     }},
   'Client Submission':{
-    intro:'This is the sendout. Rates are locked here and the client contact is recorded as the recipient, so the margin agreed now is the one you will be held to at invoice.',
-    fields:[
-      {k:'payRate',label:'Pay rate per hour',type:'number',required:true,minNum:1,value:sub.payRate||cand.desiredRate},
-      {k:'billRate',label:'Bill rate per hour',type:'number',required:true,minNum:1,value:sub.billRate||job.billRate},
+    intro:job.type==='Direct Hire'
+      ?'This is the sendout. On a direct hire the salary and the fee are what you are held to, so agree them before the CV goes anywhere.'
+      :'This is the sendout. Rates are locked here and the client contact is recorded as the recipient, so the margin agreed now is the one you will be held to at invoice.',
+    fields:(job.type==='Direct Hire'
+      ?[{k:'salary',label:'Salary offered to the candidate',type:'number',required:true,minNum:1,
+          value:sub.salary||job.salary||'',
+          hint:'A direct hire carries no hourly rates. The fee follows the salary.'}]
+      :[{k:'payRate',label:'Pay rate per hour',type:'number',required:true,minNum:1,
+          value:sub.payRate||cand.desiredRate||''},
+        {k:'billRate',label:'Bill rate per hour',type:'number',required:true,minNum:1,
+          value:sub.billRate||job.billRate||''}]
+    ).concat([
       {k:'sentTo',label:'Submit to',type:'select',required:true,value:sub.sentTo||job.contactId,
         options:coContacts(job.companyId).map(function(c){return {v:c.id,t:c.name+' \u00b7 '+c.title};})},
       {k:'consent',label:'Candidate has confirmed interest in this role and consented to being submitted to '+
-        coName(job.companyId)+' at this rate',type:'check',required:true,
+        coName(job.companyId)+(job.type==='Direct Hire'?' at this salary':' at this rate'),
+        type:'check',required:true,
         hint:'Submitting without consent is a compliance breach, not a shortcut.'}
-    ],
+    ]),
     validate:function(v){
       var e={};
-      /* Hard: these stop the sendout outright. */
       if(!cand.cv)
         e.consent='HARD STOP: '+cand.name+' has no CV on file. A client submission without a CV is not a '+
           'submission. Upload the CV on the candidate record first.';
@@ -1539,9 +1560,14 @@ function stepSpec(sub,next){
           ' and must not be submitted. Change the status on the candidate record first, with a reason.';
       else if(['Closed','Cancelled'].indexOf(job.status)>=0)
         e.consent='HARD STOP: the job order is '+job.status+', so nothing can be submitted to it.';
+      else if(job.type==='Direct Hire'){
+        if(!v.salary)e.salary='HARD STOP: a direct hire needs a salary before it goes to the client.';
+        else if(job.salary&&Number(v.salary)>job.salary*1.2)
+          e.salary='More than 20 per cent above the salary on the job order ('+money(job.salary)+
+            '). Get the range varied with the client rather than sending over it.';
+      }
       else if(Number(v.billRate)<=Number(v.payRate))
         e.billRate='HARD STOP: bill rate must exceed pay rate. This sendout would run at zero or negative margin.';
-      /* Soft: worth flagging, overridable in permissive mode. */
       else {
         if(Number(v.billRate)>job.billRate)e.billRate='This is above the job order bill rate of '+
           money(job.billRate)+'. That needs a reason and a manager behind it before the placement can be approved.';
@@ -1549,14 +1575,20 @@ function stepSpec(sub,next){
           e.sentTo='No screening notes on this submission. You are vouching for someone you have not written up.';
         else if(!sub.summary||sub.summary.length<60)
           e.sentTo='No client-facing summary. The client has to work out for themselves why you sent this.';
-        else if(Number(v.payRate)<cand.desiredRate)
+        else if(cand.desiredRate!=null&&Number(v.payRate)<cand.desiredRate)
           e.payRate='Below the confirmed pay expectation of '+money(cand.desiredRate)+
             '. Renegotiate before sending, not after.';
       }
       return e;
     },
     apply:function(v){
-      sub.payRate=Number(v.payRate);sub.billRate=Number(v.billRate);sub.sentTo=v.sentTo;
+      if(job.type==='Direct Hire'){
+        sub.salary=Number(v.salary);
+        sub.flatFee=job.flatFee||Math.round(Number(v.salary)*0.2);
+      } else {
+        sub.payRate=Number(v.payRate);sub.billRate=Number(v.billRate);
+      }
+      sub.sentTo=v.sentTo;
       sub.sendoutAt=new Date().toISOString();
       if(cand.status!=='Placed')cand.status='Submitted';
       var covered=jobSubs(job.id).filter(function(x){return !!x.sendoutAt;}).length+1;
@@ -1585,26 +1617,40 @@ function stepSpec(sub,next){
       DB.appts.push(a);sub.apptId=a.id;
     }},
   'Offer Extended':{
-    intro:'Confirm the commercials and the start date together. A start date without a confirmed rate is not an offer.',
-    fields:[
-      {k:'payRate',label:'Final pay rate',type:'number',required:true,minNum:1,value:sub.payRate},
-      {k:'billRate',label:'Final bill rate',type:'number',required:true,minNum:1,value:sub.billRate},
+    intro:'Confirm the commercials and the start date together. A start date without confirmed money is not an offer.',
+    fields:(job.type==='Direct Hire'
+      ?[{k:'salary',label:'Final salary',type:'number',required:true,minNum:1,
+          value:sub.salary||job.salary||''},
+        {k:'flatFee',label:'Fee invoiced on placement',type:'number',required:true,minNum:1,
+          value:sub.flatFee||job.flatFee||''}]
+      :[{k:'payRate',label:'Final pay rate',type:'number',required:true,minNum:1,value:sub.payRate},
+        {k:'billRate',label:'Final bill rate',type:'number',required:true,minNum:1,value:sub.billRate}]
+    ).concat([
       {k:'startDate',label:'Proposed start date',type:'date',required:true,value:iso(dOff(14))},
       {k:'note',label:'Offer conversation notes',type:'textarea',required:true,min:25,
         hint:'What the candidate said, and any condition attached to the acceptance.'}
-    ],
+    ]),
     validate:function(v){
       var e={};
-      if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate.';
-      if(Number(v.billRate)>job.billRate)e.billRate='Above the job order bill rate of '+
-        money(job.billRate)+'. Record the reason and route it for approval rather than quietly repricing.';
-      if(v.startDate&&new Date(v.startDate+'T00:00')<new Date(iso(TODAY)+'T00:00'))e.startDate='Start date is in the past.';
+      if(job.type!=='Direct Hire'){
+        if(Number(v.billRate)<=Number(v.payRate))e.billRate='HARD STOP: bill rate must exceed pay rate.';
+        else if(Number(v.billRate)>job.billRate)e.billRate='Above the job order bill rate of '+
+          money(job.billRate)+'. Record the reason and route it for approval rather than quietly repricing.';
+      }
+      if(v.startDate&&new Date(v.startDate+'T00:00')<new Date(iso(TODAY)+'T00:00'))
+        e.startDate='Start date is in the past.';
       return e;
     },
     apply:function(v){
-      sub.payRate=Number(v.payRate);sub.billRate=Number(v.billRate);sub.startDate=v.startDate;
-      DB.notes.push({id:uid('NT'),action:'Call',text:'Offer discussion: '+v.note,at:new Date().toISOString(),
-        by:'A. Trainee',links:{candidateId:cand.id,jobId:job.id},mine:true});
+      if(job.type==='Direct Hire'){
+        sub.salary=Number(v.salary);sub.flatFee=Number(v.flatFee);
+      } else {
+        sub.payRate=Number(v.payRate);sub.billRate=Number(v.billRate);
+      }
+      sub.startDate=v.startDate;
+      DB.notes.push({id:uid('NT'),action:'Outbound Call',text:'Offer discussion: '+v.note,
+        at:new Date().toISOString(),by:'A. Trainee',
+        links:{candidateId:cand.id,jobId:job.id},mine:true});
     }},
   'Placed':{
     intro:'Placing consumes an opening, sets the candidate to Placed, and creates a placement at Pending Approval. Nothing bills until that placement is approved and onboarding is clear.',
@@ -1612,22 +1658,28 @@ function stepSpec(sub,next){
       {k:'employmentType',label:'Employment type',type:'select',required:true,options:EMP_TYPE,
         value:job.type==='Direct Hire'?'Permanent':'W2'},
       {k:'startDate',label:'Confirmed start date',type:'date',required:true,value:sub.startDate||iso(dOff(14))},
-      {k:'endDate',label:'Assignment end date',type:'date',required:true,value:iso(dOff(104)),
-        hint:'Contract assignments need an end date for forecasting and extension tracking.'},
+      {k:'endDate',label:'Assignment end date',type:'date',
+        required:job.type!=='Direct Hire',value:iso(dOff(104)),
+        hint:job.type==='Direct Hire'
+          ?'A permanent placement has no assignment end date. Leave it blank.'
+          :'Contract assignments need an end date for forecasting and extension tracking.'},
       {k:'confirm',label:'Candidate has accepted in writing and the client has confirmed the start',type:'check',required:true}
     ],
     validate:function(v){
       var e={};
       if(job.filled>=job.openings)e.confirm='This job order has no openings left. Vary the openings on the job order before placing.';
-      if(v.endDate&&v.startDate&&new Date(v.endDate)<=new Date(v.startDate))e.endDate='End date must be after the start date.';
+      if(v.endDate&&v.startDate&&new Date(v.endDate)<=new Date(v.startDate))
+        e.endDate='HARD STOP: end date must be after the start date.';
       return e;
     },
     apply:function(v){
       sub.startDate=v.startDate;
       var p={id:uid('PL'),jobId:job.id,candidateId:cand.id,subId:sub.id,status:'Pending Approval',
-        employmentType:v.employmentType,start:v.startDate,end:v.endDate,
-        payRate:sub.payRate,billRate:sub.billRate,approvedBy:null,createdBy:'A. Trainee',
-        mine:true,onboard:{}};
+        employmentType:v.employmentType,start:v.startDate,end:v.endDate||null,
+        payRate:sub.payRate||0,billRate:sub.billRate||0,
+        salary:sub.salary||job.salary||0,flatFee:sub.flatFee||job.flatFee||0,
+        perm:job.type==='Direct Hire',
+        approvedBy:null,createdBy:'A. Trainee',mine:true,onboard:{}};
       ONBOARD.forEach(function(o){p.onboard[o.k]=false;});
       DB.placements.push(p);
       job.filled+=1;
@@ -1690,7 +1742,7 @@ A.reject=function(subId){
 A.approvePlacement=function(id){
   var p=byId(DB.placements,id);
   var j=byId(DB.jobs,p.jobId);
-  var band=marginBand(p.payRate,p.billRate);
+  var band=marginBand(p.payRate,p.billRate,p);
   var overRate=p.billRate>j.billRate;
   var creator=p.createdBy||'A. Trainee';
   var approvers=['M. Silva','A. Rao','A. Trainee'].filter(function(x){return x!==creator;});
@@ -2253,7 +2305,10 @@ A.editCandidate=function(id){
         hint:'Comma separated. These are searchable, so spelling matters more here than anywhere else.'},
       {k:'source',label:'Source',type:'select',required:true,value:c.source,
         options:CD_SOURCES},
-      {k:'desiredRate',label:'Desired pay rate',type:'number',required:true,minNum:1,value:c.desiredRate},
+      {k:'desiredRate',label:'Desired pay rate',type:'number',minNum:1,
+        value:c.desiredRate==null?'':c.desiredRate,
+        softRequired:'Clearing the rate stores no value rather than zero. The submission check '+
+          'that compares against it will stop firing.'},
       {k:'availability',label:'Availability',type:'select',required:true,value:c.availability,
         options:['Immediate','1 week','2 weeks','4 weeks','Notice period']},
       {k:'employmentPref',label:'Employment preference',type:'select',required:true,options:JO_TYPE,value:c.employmentPref},
@@ -2283,7 +2338,8 @@ A.editCandidate=function(id){
         ['phone',c.phone,v.phone],['email',c.email,v.email]];
       var changed=diffLog('Candidate',c.name,before);
       c.name=v.name;c.occupation=v.occupation;c.status=v.status;c.category=v.category;
-      c.location=v.location;c.source=v.source;c.desiredRate=Number(v.desiredRate);
+      c.location=v.location;c.source=v.source;
+      c.desiredRate=(v.desiredRate===''||v.desiredRate==null)?null:Number(v.desiredRate);
       c.availability=v.availability;c.employmentPref=v.employmentPref;c.owner=v.owner;
       c.phone=v.phone;c.email=v.email;
       c.skills=v.skills.split(',').map(function(s){return s.trim();}).filter(Boolean);
@@ -2508,14 +2564,15 @@ A.editPlacement=function(id){
     validate:function(v){
       var e={};
       if(Number(v.billRate)<=Number(v.payRate))e.billRate='Bill rate must exceed pay rate.';
-      if(new Date(v.end)<=new Date(v.start))e.end='End date must be after the start date.';
+      if(v.end&&new Date(v.end)<=new Date(v.start))
+        e.end='HARD STOP: end date must be after the start date.';
       var ratesMoved=Number(v.payRate)!==p.payRate||Number(v.billRate)!==p.billRate||v.start!==p.start;
       if(approved&&ratesMoved&&!v.ack)
         e.ack='Confirm this before changing an approved placement.';
       if(billed.length&&Number(v.payRate)!==p.payRate)
         e.payRate=billed.length+' week(s) have already been approved at '+money(p.payRate)+
           '. Changing the pay rate retrospectively would misstate what has been paid. Raise an adjustment instead.';
-      if(v.status==='Approved'&&margin(Number(v.payRate),Number(v.billRate))<10)
+      if(!p.perm&&v.status==='Approved'&&margin(Number(v.payRate),Number(v.billRate))<10)
         e.status='Gross margin would be '+margin(Number(v.payRate),Number(v.billRate))+
           '%, below the 10% threshold. This cannot be set to Approved.';
       return e;
@@ -2739,9 +2796,11 @@ A.selectAll=function(ids,on){
   ids.forEach(function(id){if(on)st[id]=true;else delete st[id];});
   render();
 };
-function selBox(id,on){
+function selBox(id,on,name){
+  var what=name?('Select '+name):'Select this record';
   return '<span class="selbox'+(on?' on':'')+'" data-act="sel" data-id="'+id+
-    '" role="checkbox" tabindex="0" aria-checked="'+(!!on)+'">'+(on?'\u2713':'')+'</span>';
+    '" role="checkbox" tabindex="0" aria-checked="'+(!!on)+'" '+
+    'aria-label="'+esc(what)+'" title="'+esc(what)+'">'+(on?'\u2713':'')+'</span>';
 }
 function selBar(n,extra){
   if(!n)return '';
@@ -2858,10 +2917,7 @@ function vSearch(){
         '<th>Availability</th><th>CV</th><th>Matched on</th></tr></thead><tbody>'+
         rows.map(function(x){
           var c=x.c,on=!!searchSel[c.id];
-          return '<tr><td><span class="bx" data-act="sel" data-id="'+c.id+'" role="checkbox" tabindex="0" '+
-            'aria-checked="'+on+'" style="width:16px;height:16px;border:1.5px solid '+(on?'var(--good)':'var(--line)')+
-            ';background:'+(on?'var(--good)':'#fff')+';border-radius:3px;display:grid;place-items:center;'+
-            'cursor:pointer;color:#fff;font-size:11px">'+(on?'✓':'')+'</span></td>'+
+          return '<tr'+(on?' class="sel"':'')+'><td>'+selBox(c.id,on,c.name)+'</td>'+
             '<td><span class="qv" data-act="peek" data-type="candidate" data-id="'+c.id+
               '" role="button" tabindex="0" title="Quick view">\u25CE</span> '+
               '<span class="lnk" data-go="candidate" data-id="'+c.id+'">'+esc(c.name)+'</span></td>'+
@@ -3134,7 +3190,7 @@ function vCandidates(){
         return '<tr class="click'+(candSel[c.id]?' sel':'')+'" data-go="candidate" data-id="'+c.id+'">'+
           '<td><span class="qv" data-act="peek" data-type="candidate" data-id="'+c.id+
             '" role="button" tabindex="0" title="Quick view">\u25CE</span></td>'+
-          '<td>'+selBox(c.id,!!candSel[c.id])+'</td>'+
+          '<td>'+selBox(c.id,!!candSel[c.id],c.name)+'</td>'+
           '<td><span class="lnk">'+esc(c.name)+'</span>'+
           (c.mine?' <span class="tag">yours</span>':'')+'</td>'+
           '<td class="muted">'+esc(c.occupation)+'</td>'+
@@ -3499,7 +3555,8 @@ function filesPanel(c){
       '<div style="margin-top:10px"><button class="btn" data-act="upload-cv" data-id="'+c.id+
       '">Attach a resume</button></div></div>')+
     '<div class="card-b" style="border-top:1px solid var(--line2)">'+
-      '<div class="f cb" style="margin:0"><input type="checkbox" id="pov" role="switch" data-act="parser-toggle"'+
+      '<div class="f cb" style="margin:0"><input type="checkbox" id="pov" role="switch" '+
+      'aria-label="Overwrite prevention" data-act="parser-toggle"'+
       (DB.parserOverwritePrevention?' checked':'')+'>'+
       '<div><label for="pov">Overwrite prevention</label>'+
       '<div class="hint">On: fields that already hold a value are protected from a parse, and skills '+
@@ -3521,7 +3578,10 @@ function taskTable(rows){
   if(!rows.length)return '<div class="empty"><b>Nothing outstanding</b>Tasks you commit to with a date appear here.</div>';
   return '<div class="tw"><table><tbody>'+rows.map(function(t){
     var late=!t.done&&new Date(t.due)<new Date(iso(TODAY));
-    return '<tr><td style="width:26px"><span style="width:16px;height:16px;border:1.5px solid var(--line);border-radius:3px;display:block;cursor:pointer" data-act="task" data-id="'+t.id+'" role="checkbox" tabindex="0" aria-checked="false"></span></td>'+
+    return '<tr><td style="width:26px"><span style="width:16px;height:16px;border:1.5px solid var(--line);'+
+      'border-radius:3px;display:block;cursor:pointer" data-act="task" data-id="'+t.id+
+      '" role="checkbox" tabindex="0" aria-checked="false" '+
+      'aria-label="Mark complete: '+esc(t.subject)+'" title="Mark complete"></span></td>'+
       '<td>'+esc(t.subject)+(t.entity?' <span class="mono muted">'+esc(t.entity)+'</span>':'')+'</td>'+
       '<td style="width:80px">'+(t.priority==='High'?'<span class="pill p-warn">High</span>':'<span class="muted">'+esc(t.priority)+'</span>')+'</td>'+
       '<td style="width:118px">'+(late?'<span class="pill p-bad">due '+fmtD(t.due)+'</span>':'<span class="muted">'+fmtD(t.due)+'</span>')+'</td>'+
@@ -4288,7 +4348,10 @@ function vPlacement(){
       '</div><div class="card-b"><div class="chk">'+ONBOARD.map(function(o){
         var on=p.onboard[o.k];
         return '<div class="chk-i'+(on?' done':'')+'">'+
-          '<span class="bx" data-act="onboard" data-id="'+p.id+'" data-key="'+o.k+'" role="checkbox" tabindex="0" aria-checked="'+on+'">'+(on?'✓':'')+'</span>'+
+          '<span class="bx" data-act="onboard" data-id="'+p.id+'" data-key="'+o.k+
+          '" role="checkbox" tabindex="0" aria-checked="'+on+'" '+
+          'aria-label="'+(on?'Reopen: ':'Mark complete: ')+esc(o.t)+'" '+
+          'title="'+(on?'Reopen':'Mark complete')+'">'+(on?'\u2713':'')+'</span>'+
           '<span class="tx">'+esc(o.t)+'<span class="hint">'+esc(o.h)+'</span></span></div>';
       }).join('')+'</div>'+
       (gaps.length?'<div class="callout bad" style="margin:14px 0 0">Time entry is blocked while items are outstanding. An unverified worker cannot be invoiced.</div>':'')+
@@ -5658,7 +5721,9 @@ function vConfig(){
             var on=req.indexOf(f)>=0;
             return '<div style="display:flex;gap:8px;align-items:center">'+
               '<span class="selbox'+(on?' on':'')+'" data-act="cfg-req" data-id="'+en+'" '+
-              'data-field="'+f+'" role="checkbox" tabindex="0" aria-checked="'+on+'">'+
+              'data-field="'+f+'" role="checkbox" tabindex="0" aria-checked="'+on+'" '+
+              'aria-label="'+(on?'Stop requiring ':'Require ')+esc(FIELD_LABEL[f]||f)+'" '+
+              'title="'+(on?'Stop requiring ':'Require ')+esc(FIELD_LABEL[f]||f)+'">'+
               (on?'\u2713':'')+'</span><span style="font-size:12.5px">'+
               esc(FIELD_LABEL[f]||f)+'</span></div>';
           }).join('')+'</div></div></div>';
