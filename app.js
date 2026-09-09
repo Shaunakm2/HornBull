@@ -6658,8 +6658,22 @@ Store.init().then(function(rec){
      'times','notes','tasks','tearsheets','savedSearches','audit'].forEach(function(k){
       if(!DB[k])DB[k]=[];});
     Store.lastSaved=rec.savedAt||null;
+    /* Datasets saved by an earlier build carry resume text inline. Resumes now live in their
+       own store, so those have to be moved across before the next save strips them. */
+    var inlineCVs=DB.candidates.some(function(c){return !!c.cv;});
     Store.hydrateCVs().then(function(n){
+      if(inlineCVs||!n)Store.markAllCV();
       if(n)render();
+      Store.save(true);
+      /* A dataset from before the pool was expanded looks broken rather than old, so say so. */
+      var expected=0;
+      Object.keys(VERTICALS).forEach(function(k){expected+=VERTICALS[k].n;});
+      if(DB.candidates.length<expected*0.5){
+        notify('Your saved data is from an earlier build \u2014 '+DB.candidates.length+
+          ' candidates rather than about '+expected+'. Reset all data to load the current pool.',
+          'candidates',null);
+        toast(DB.candidates.length+' candidates loaded from an earlier build \u2014 reset to get the full pool','no');
+      }
     });
     if(typeof DB.uiRail==='boolean')railMini=DB.uiRail;
     if(typeof DB.uiCoach==='boolean')coachMini=DB.uiCoach;
