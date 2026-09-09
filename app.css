@@ -826,3 +826,10 @@ tbody tr.sel{background:var(--blue-sf)!important}
 .chart-key .k{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
 .chart-key .v{font-family:var(--mono);font-size:11px;color:var(--ink3)}
 @media (max-width:700px){ .dashgrid{grid-template-columns:minmax(0,1fr)} }
+
+/* desk type selector in the practice panel */
+.coach-lbl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--coach);margin:0 0 3px}
+.coach-ends{font-size:11.5px;line-height:1.45;color:#6B4A0C;background:#fff;
+  border:1px solid var(--coach-line);border-radius:var(--r);padding:8px 9px;margin:0 0 11px}
+.coach-ends b{font-weight:600}
