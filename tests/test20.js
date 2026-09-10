@@ -86,6 +86,29 @@ setTimeout(() => {
     if (!q('.h.rec') && !/records/.test(main())) fail('Enter did not activate a row');
   }
 
+
+  /* ---- record chrome must be consistent across every record type ---- */
+  [['candidates','candidate'],['jobs','job'],['companies','company'],['contacts','contact'],
+   ['placements','placement'],['leads','lead'],['opps','opp'],['tearsheets','tearsheet']]
+   .forEach(([list,type])=>{
+    nav(list);
+    const row=qa('tbody tr.click')[0];
+    if(!row) return;
+    click(row);
+    if(!q('.h.rec')) fail(type+' record has no green header band');
+    if(qa('#main > .h').some(h=>!h.classList.contains('rec')))
+      fail(type+' record still renders the old plain heading');
+    const kids=Array.from(q('#main').children).map(c=>c.className||'');
+    const ci=kids.findIndex(c=>/(^|\s)crumb(\s|$)/.test(c));
+    const bi=kids.findIndex(c=>/h rec/.test(c));
+    if(bi<0) fail(type+' has no band among the top-level blocks');
+    if(ci>=0 && ci!==bi-1)
+      fail(type+' breadcrumb is not immediately above the band (crumb '+ci+', band '+bi+')');
+    if(ci<0) fail(type+' record has no breadcrumb, so navigation back is inconsistent');
+    const sub=kids[bi+1]||'';
+    if(!/recsub/.test(sub)) fail(type+' has no context line under the band');
+  });
+
   Object.keys(problems).forEach(k => {
     const list = Array.from(problems[k]);
     fail(k + ' (' + list.length + '): ' + list.slice(0, 4).join('; ') + (list.length > 4 ? ' …' : ''));
