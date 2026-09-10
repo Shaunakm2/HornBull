@@ -833,3 +833,24 @@ tbody tr.sel{background:var(--blue-sf)!important}
 .coach-ends{font-size:11.5px;line-height:1.45;color:#6B4A0C;background:#fff;
   border:1px solid var(--coach-line);border-radius:var(--r);padding:8px 9px;margin:0 0 11px}
 .coach-ends b{font-weight:600}
+
+
+/* ==================================================================
+   Fonts
+   ------------------------------------------------------------------
+   The page makes no third-party requests. These stacks name the
+   self-hosted families first, so dropping the .woff2 files into a
+   fonts/ folder picks them up without touching this file; otherwise
+   the operating system supplies a close grotesque and monospace.
+   ================================================================== */
+:root{
+  --sans:'Archivo',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',
+    Arial,'Noto Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono','Cascadia Mono','Segoe UI Mono',
+    'Roboto Mono',Menlo,Consolas,monospace;
+}
+body{font-family:var(--sans)}
+/* Segoe and Roboto run a shade wider than Archivo at the same size, so pull the
+   headings back very slightly to keep the record headers on one line. */
+.h h2,.listbar h2{letter-spacing:-.022em}
+.rtabs a{letter-spacing:.035em}
