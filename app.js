@@ -6446,6 +6446,7 @@ function render(){
       :'Training mode is on. Turn it off to use this as a plain ATS.';
   }
   renderTabs();renderCoach();renderRail();focusable(main);wireDrag(main);renderPeek();
+  main.setAttribute('data-booted','1');
   if(candFocus){
     var cf=document.getElementById('cand-filter');
     if(cf){cf.focus();try{cf.setSelectionRange(cf.value.length,cf.value.length);}catch(e){}}
@@ -6693,7 +6694,31 @@ document.addEventListener('mousedown',function(e){
   if(!e.target.closest('.ff'))document.getElementById('ff-res').innerHTML='';
 });
 
-render();
+/* If anything throws before the first render completes, say so on the page. A blank screen
+   tells nobody anything. */
+function bootFail(where,err){
+  try{
+    var m=document.getElementById('main');
+    if(!m||m.getAttribute('data-booted')==='1')return;
+    var msg=String((err&&err.stack)||(err&&err.message)||err||'unknown error');
+    m.innerHTML='<div style="padding:24px 20px;font-family:var(--sans,Arial);max-width:70em">'+
+      '<h2 style="margin:0 0 8px;font-size:19px;color:#9E3823">The practice environment '+
+      'failed to start</h2>'+
+      '<p style="margin:0 0 12px;font-size:14px;color:#5A6875">It stopped while '+esc(where)+
+      '. The detail below is what to send on if you need help.</p>'+
+      '<pre style="background:#F7F8F9;border:1px solid #DCE1E6;border-radius:4px;padding:12px;'+
+      'font-size:11.5px;line-height:1.5;overflow:auto;white-space:pre-wrap">'+esc(msg)+'</pre>'+
+      '<p style="margin:12px 0 0;font-size:13.5px;color:#5A6875">Saved data from an older build '+
+      'is the usual cause. <b>Reset all data</b> at the top right, or clear this site\u2019s '+
+      'storage in your browser, then reload.</p></div>';
+  }catch(e){
+    try{document.getElementById('main').textContent='The practice environment failed to start: '+e;}catch(x){}
+  }
+}
+window.addEventListener('error',function(ev){bootFail('running',ev.error||ev.message);});
+window.addEventListener('unhandledrejection',function(ev){bootFail('loading saved data',ev.reason);});
+
+try{ render(); }catch(e){ bootFail('drawing the first screen',e); }
 
 Store.init().then(function(rec){
   if(rec&&rec.data&&rec.data.candidates){
@@ -6730,5 +6755,13 @@ Store.init().then(function(rec){
     if(Store.available){Store.markAllCV();Store.save(true);}
     if(!DB.tourSeen)tourWelcome();
   }
-}).catch(function(){render();if(!DB.tourSeen)tourWelcome();});
+}).catch(function(err){
+  /* Saved data that cannot be read must not take the whole application down. */
+  try{
+    if(document.getElementById('main').getAttribute('data-booted')!=='1')render();
+    toast('Saved data could not be read, so the sandbox started fresh','no');
+    log('Saved data could not be read',String(err&&err.message||err));
+  }catch(e){bootFail('recovering from unreadable saved data',e);}
+  if(!DB.tourSeen)tourWelcome();
+});
 })();
