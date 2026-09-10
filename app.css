@@ -854,3 +854,20 @@ body{font-family:var(--sans)}
    headings back very slightly to keep the record headers on one line. */
 .h h2,.listbar h2{letter-spacing:-.022em}
 .rtabs a{letter-spacing:.035em}
+
+/* ==================================================================
+   Record header position
+   ------------------------------------------------------------------
+   The green band bleeds to the edges with negative margins. Pulling it
+   up by the main area's top padding is only correct when it is the
+   first thing on the page; where a breadcrumb sits above it, the pull
+   dragged the band over the breadcrumb text.
+   ================================================================== */
+.h.rec{margin:0 -20px}
+.main>.h.rec:first-child{margin-top:-15px}
+.main>.crumb:first-child{margin:0 0 9px}
+.main>.crumb+.h.rec{margin-top:0}
+@media (max-width:760px){
+  .h.rec{margin:0 -12px}
+  .main>.h.rec:first-child{margin-top:-12px}
+}

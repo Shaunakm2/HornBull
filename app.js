@@ -3730,11 +3730,12 @@ function vLead(){
   var l=byId(DB.leads,route.id);
   if(!l)return notFound();
   return crumb([{v:'leads',t:'Leads'},{t:l.name}])+
-    '<div class="h"><h2>'+esc(l.name)+'</h2><span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="note">Add Note</button>'+
-    '<button class="btn ghost" data-act="edit-lead" data-id="'+l.id+'">Edit</button>'+
-    (l.status!=='Converted'?'<button class="btn" data-act="convert-lead" data-id="'+l.id+'">Convert Lead</button>':'')+
-    '</div></div>'+
+    recHead({type:'lead',id:l.id,name:l.name,
+      next:l.status!=='Converted'?{act:'convert-lead',id:l.id,label:'Convert Lead'}:null,
+      actions:'<button class="btn ghost" data-act="edit-lead" data-id="'+l.id+'">Edit</button>'+
+        '<button class="btn ghost" data-act="note">Add Note</button>',
+      sub:esc(l.title)+' at '+esc(l.company)+' \u00b7 '+esc(l.status)+
+        ' \u00b7 '+esc(l.source)+' \u00b7 record <span class="mono">'+esc(l.id)+'</span>'})+
     '<p class="sub">'+esc(l.title)+' at '+esc(l.company)+' · '+esc(l.source)+' · record <span class="mono">'+esc(l.id)+'</span></p>'+
     '<div class="snap">'+
       '<div><div class="k">Status</div><div class="v">'+esc(l.status)+'</div></div>'+
@@ -3768,11 +3769,13 @@ function vOpp(){
   var o=byId(DB.opps,route.id);
   if(!o)return notFound();
   return crumb([{v:'opps',t:'Opportunities'},{v:'company',id:o.companyId,t:coName(o.companyId)},{t:o.title}])+
-    '<div class="h"><h2>'+esc(o.title)+'</h2><span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="note">Add Note</button>'+
-    '<button class="btn ghost" data-act="edit-opp" data-id="'+o.id+'">Edit</button>'+
-    (o.status==='Open'?'<button class="btn" data-act="convert-opp" data-id="'+o.id+'">Convert to Job Order</button>':'')+
-    '</div></div>'+
+    recHead({type:'opp',id:o.id,name:o.title,
+      next:o.status==='Open'?{act:'convert-opp',id:o.id,label:'Convert to Job Order'}:null,
+      actions:'<button class="btn ghost" data-act="edit-opp" data-id="'+o.id+'">Edit</button>'+
+        '<button class="btn ghost" data-act="note">Add Note</button>',
+      sub:esc(coName(o.companyId))+' \u00b7 '+esc(ctName(o.contactId))+' \u00b7 '+esc(o.status)+
+        ' \u00b7 '+money(o.value)+' at '+o.probability+'% \u00b7 record <span class="mono">'+
+        esc(o.id)+'</span>'})+
     '<p class="sub">'+esc(coName(o.companyId))+' · '+esc(ctName(o.contactId))+' · record <span class="mono">'+esc(o.id)+'</span></p>'+
     '<div class="snap">'+
       '<div><div class="k">Status</div><div class="v">'+esc(o.status)+'</div></div>'+
@@ -3910,10 +3913,13 @@ function vContact(){
   var jobs=DB.jobs.filter(function(j){return j.contactId===t.id;});
   var sent=DB.subs.filter(function(s){return s.sentTo===t.id;});
   return crumb([{v:'contacts',t:'Contacts'},{v:'company',id:t.companyId,t:coName(t.companyId)},{t:t.name}])+
-    '<div class="h"><h2>'+esc(t.name)+'</h2><span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="edit-contact" data-id="'+t.id+'">Edit</button>'+
-    '<button class="btn ghost" data-act="note" data-contactid="'+t.id+'">Add Note</button>'+
-    '<button class="btn" data-act="add-job" data-id="'+t.companyId+'">Add Job Order</button></div></div>'+
+    recHead({type:'contact',id:t.id,name:t.name,
+      next:{act:'add-job',id:t.companyId,label:'Add Job Order'},
+      actions:'<button class="btn ghost" data-act="edit-contact" data-id="'+t.id+'">Edit</button>'+
+        '<button class="btn ghost" data-act="email" data-to="contact" data-ctid="'+t.id+'">Email</button>'+
+        '<button class="btn ghost" data-act="note" data-contactid="'+t.id+'">Add Note</button>',
+      sub:esc(t.title)+' at '+esc(coName(t.companyId))+' \u00b7 '+esc(t.status)+
+        ' \u00b7 owner '+esc(t.owner)+' \u00b7 record <span class="mono">'+esc(t.id)+'</span>'})+
     '<p class="sub">'+esc(t.title)+' at '+esc(coName(t.companyId))+' · record <span class="mono">'+esc(t.id)+'</span></p>'+
     '<div class="snap">'+
       '<div><div class="k">Status</div><div class="v">'+esc(t.status)+'</div></div>'+
@@ -4095,7 +4101,8 @@ function vCandidate(){
     if(ix>best)best=ix;
     if(PIPE_OUT.indexOf(x.status)>=0&&bestOut==null)bestOut=x.status;
   });
-  var head=recHead({type:'candidate',id:c.id,name:c.name,
+  var head=crumb([{v:'candidates',t:'Candidates'},{t:c.name}])+
+    recHead({type:'candidate',id:c.id,name:c.name,
     next:c.cv?{act:'pipeline-add',id:c.id,label:'Add to pipeline'}:{act:'upload-cv',id:c.id,label:'Upload CV'},
     actions:'<button class="btn ghost" data-act="edit-candidate" data-id="'+c.id+'">Edit</button>'+
       '<button class="btn ghost" data-act="email" data-to="candidate" data-cid="'+c.id+'">Email</button>'+
@@ -4296,9 +4303,11 @@ function vTearsheet(){
   var t=byId(DB.tearsheets,route.id);
   if(!t)return notFound();
   return crumb([{v:'tearsheets',t:'Tearsheets'},{t:t.name}])+
-    '<div class="h"><h2>'+esc(t.name)+'</h2><span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="edit-tearsheet" data-id="'+t.id+'">Edit</button>'+
-    '<button class="btn" data-act="tearsheet-add">Add candidate</button></div></div>'+
+    recHead({type:'tearsheet',id:t.id,name:t.name,
+      next:{act:'tearsheet-add',id:t.id,label:'Add candidate'},
+      actions:'<button class="btn ghost" data-act="edit-tearsheet" data-id="'+t.id+'">Edit</button>',
+      sub:esc(t.description)+' \u00b7 owner '+esc(t.owner)+' \u00b7 '+t.candidateIds.length+
+        ' candidates \u00b7 record <span class="mono">'+esc(t.id)+'</span>'})+
     '<p class="sub">'+esc(t.description)+' · owner '+esc(t.owner)+' · record <span class="mono">'+esc(t.id)+'</span></p>'+
     (t.candidateIds.length?'<div class="tw"><table><thead><tr><th>Candidate</th><th>Occupation</th><th>Status</th>'+
       '<th>Availability</th><th class="num">Rate</th><th></th></tr></thead><tbody>'+
@@ -4343,12 +4352,17 @@ function vPlacement(){
   var notes=notesFor('candidateId',p.candidateId);
   var tab=route.tab||'overview';
   var head=crumb([{v:'placements',t:'Placements'},{v:'job',id:p.jobId,t:jobName(p.jobId)},{t:candName(p.candidateId)}])+
-    '<div class="h"><h2>'+esc(candName(p.candidateId))+'</h2>'+plPill(p)+'<span class="sp"></span><div class="btnrow">'+
-    '<button class="btn ghost" data-act="edit-placement" data-id="'+p.id+'">Edit</button>'+
-    '<button class="btn ghost" data-act="note" data-candidateid="'+p.candidateId+'">Add Note</button>'+
-    (p.status==='Pending Approval'?'<button class="btn" data-act="approve-pl" data-id="'+p.id+'">Approve placement</button>'
-      :'<button class="btn" data-act="time-add" data-id="'+p.id+'">Add time entry</button>')+
-    '</div></div>'+
+    recHead({type:'placement',id:p.id,name:candName(p.candidateId),
+      next:p.status==='Pending Approval'
+        ?{act:'approve-pl',id:p.id,label:'Approve placement'}
+        :{act:'time-add',id:p.id,label:'Add time entry'},
+      actions:'<button class="btn ghost" data-act="edit-placement" data-id="'+p.id+'">Edit</button>'+
+        '<button class="btn ghost" data-act="note" data-candidateid="'+p.candidateId+'">Add Note</button>'+
+        '<button class="btn ghost" data-act="actions" data-type="placement" data-id="'+p.id+
+          '">Actions \u25BE</button>',
+      sub:esc(jobName(p.jobId))+' at '+esc(coName((byId(DB.jobs,p.jobId)||{}).companyId))+
+        ' \u00b7 '+esc(p.status)+' \u00b7 '+esc(p.employmentType||'')+
+        ' \u00b7 record <span class="mono">'+esc(p.id)+'</span>'})+
     '<p class="sub">'+esc(jobName(p.jobId))+' at '+esc(coName(j?j.companyId:''))+' · record <span class="mono">'+esc(p.id)+'</span></p>'+
     '<div class="snap">'+
       '<div><div class="k">Employment type</div><div class="v">'+esc(p.employmentType)+'</div></div>'+
